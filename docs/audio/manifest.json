@@ -1,0 +1,93 @@
+{
+ "sampleRate": 48000,
+ "channels": 2,
+ "segmentFrames": 288000,
+ "segments": 398,
+ "totalFrames": 114446112,
+ "movements": [
+  {
+   "season": "spring",
+   "movement": 1,
+   "title": "Allegro",
+   "start": 0,
+   "end": 10172640
+  },
+  {
+   "season": "spring",
+   "movement": 2,
+   "title": "Largo e pianissimo sempre",
+   "start": 10172640,
+   "end": 18212160
+  },
+  {
+   "season": "spring",
+   "movement": 3,
+   "title": "Allegro pastorale",
+   "start": 18212160,
+   "end": 30304800
+  },
+  {
+   "season": "summer",
+   "movement": 1,
+   "title": "Allegro non molto",
+   "start": 30304800,
+   "end": 44685600
+  },
+  {
+   "season": "summer",
+   "movement": 2,
+   "title": "Adagio e piano \u2013 Presto e forte",
+   "start": 44685600,
+   "end": 49625760
+  },
+  {
+   "season": "summer",
+   "movement": 3,
+   "title": "Presto",
+   "start": 49625760,
+   "end": 57207840
+  },
+  {
+   "season": "autumn",
+   "movement": 1,
+   "title": "Allegro",
+   "start": 57207840,
+   "end": 71812896
+  },
+  {
+   "season": "autumn",
+   "movement": 2,
+   "title": "Adagio molto",
+   "start": 71812896,
+   "end": 78990336
+  },
+  {
+   "season": "autumn",
+   "movement": 3,
+   "title": "Allegro",
+   "start": 78990336,
+   "end": 88558272
+  },
+  {
+   "season": "winter",
+   "movement": 1,
+   "title": "Allegro non molto",
+   "start": 88558272,
+   "end": 98463552
+  },
+  {
+   "season": "winter",
+   "movement": 2,
+   "title": "Largo",
+   "start": 98463552,
+   "end": 104572512
+  },
+  {
+   "season": "winter",
+   "movement": 3,
+   "title": "Allegro",
+   "start": 104572512,
+   "end": 114446112
+  }
+ ]
+}
