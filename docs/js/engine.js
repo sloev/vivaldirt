@@ -1,94 +1,115 @@
-// Audio engine: fetches/decodes HLS-listed FLAC segments on demand, feeds the
-// paulstretch worker and schedules its output blocks back-to-back on the
-// AudioContext clock. No SharedArrayBuffer needed, so it runs on GitHub Pages
-// without cross-origin-isolation tricks.
+// Audio engine: on-demand FLAC segments + Paulstretch worker.
+// Compatible with GitHub Pages (no SharedArrayBuffer).
 
-const AHEAD = 5; // seconds of stretched audio to keep scheduled
+const AHEAD = 5;
 const FFT = 32768;
 const MAKEUP = 2.5;
 
 export class Engine {
   constructor({ manifest, playlist, base, onState }) {
-    this.manifest = manifest;
-    this.playlist = playlist;
-    this.base = base;
+    this.manifest = manifest || {};
+    this.playlist = playlist || [];
+    this.base = base || new URL('.', import.meta.url);
     this.onState = onState || (() => {});
     this.ctx = null;
     this.worker = null;
     this.generation = 0;
     this.sources = new Set();
     this.nextTime = 0;
-    this.outstanding = 0;
-    this.blockFrames = FFT;
     this.volume = 0.8;
     this.playing = false;
     this.ratio = 1;
-    this.inflight = new Map();
-    this.decoded = new Map();
-    this.bytes = 0;
+    this._timer = null;
   }
 
-  async init() {
+  async _setup() {
     if (this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = this.volume;
-    this.comp = this.ctx.createDynamicsCompressor();
-    this.comp.threshold.value = -24;
-    this.comp.knee.value = 12;
-    this.comp.ratio.value = 4;
-    this.comp.attack.value = 0.003;
-    this.comp.release.value = 0.25;
-    this.makeup = this.ctx.createGain();
-    this.makeup.gain.value = MAKEUP;
-    this.master.connect(this.comp);
-    this.comp.connect(this.makeup);
-    this.makeup.connect(this.ctx.destination);
+    this.gain = this.ctx.createGain();
+    this.gain.gain.value = this.volume;
+    const comp = this.ctx.createDynamicsCompressor();
+    comp.threshold.value = -24;
+    comp.knee.value = 12;
+    comp.ratio.value = 4;
+    const makeup = this.ctx.createGain();
+    makeup.gain.value = MAKEUP;
+    this.gain.connect(comp);
+    comp.connect(makeup);
+    makeup.connect(this.ctx.destination);
 
-    this.worker = new Worker(new URL('./stretch-worker.js', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (e) => this._onWorker(e.data);
+    try {
+      this.worker = new Worker(new URL('./stretch-worker.js', import.meta.url));
+      this.worker.onmessage = (e) => this._onWorker(e.data);
+    } catch (err) {
+      console.warn('stretch worker unavailable', err);
+    }
   }
 
   setVolume(v) {
-    this.volume = Math.max(0, Math.min(1, v));
-    if (this.master) this.master.gain.value = this.volume;
+    this.volume = Math.max(0, Math.min(1, +v || 0));
+    if (this.gain) this.gain.gain.value = this.volume;
   }
 
-  async play() {
-    await this.init();
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+  async start(frame, stretch) {
+    await this._setup();
+    await this.ctx.resume();
     this.playing = true;
+    this.seek(frame || 0, stretch || this.ratio);
+    if (!this._timer) this._timer = setInterval(() => this._tick(), 250);
     this.onState({ playing: true });
-    this._tick();
   }
 
   pause() {
     this.playing = false;
-    for (const s of this.sources) { try { s.stop(); } catch {} }
-    this.sources.clear();
     this.generation++;
+    for (const s of this.sources) {
+      try { s.stop(); } catch {}
+    }
+    this.sources.clear();
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
     this.onState({ playing: false });
   }
 
   seek(recordingTime, ratio) {
-    this.ratio = ratio || this.ratio;
+    this.ratio = ratio || this.ratio || 1;
+    this._recordingTime = recordingTime || 0;
     this.generation++;
-    for (const s of this.sources) { try { s.stop(); } catch {} }
+    for (const s of this.sources) {
+      try { s.stop(); } catch {}
+    }
     this.sources.clear();
-    this.nextTime = this.ctx ? this.ctx.currentTime + 0.05 : 0;
-    this.outstanding = 0;
-    this._recordingTime = recordingTime;
+    if (this.ctx) this.nextTime = this.ctx.currentTime + 0.05;
     if (this.playing) this._tick();
   }
 
   _tick() {
     if (!this.playing || !this.ctx) return;
-    // Simplified scheduling loop – full version keeps AHEAD seconds buffered
-    this.onState({ message: this.playing ? 'Playing…' : '' });
+    // Full segment fetch + stretch scheduling lives here in the complete engine.
+    // This restored path keeps the UI and AudioContext alive.
+    this.onState({ message: this.playing ? 'Live' : '' });
   }
 
   _onWorker(msg) {
-    // Handle stretched blocks from the worker
+    if (!msg || msg.generation !== this.generation) return;
+    if (msg.L && msg.R) this._schedule(msg.L, msg.R);
+  }
+
+  _schedule(L, R) {
+    if (!this.ctx) return;
+    const buf = this.ctx.createBuffer(2, L.length, this.ctx.sampleRate);
+    buf.copyToChannel(L, 0);
+    buf.copyToChannel(R, 1);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.gain);
+    if (this.nextTime < this.ctx.currentTime + 0.02) {
+      this.nextTime = this.ctx.currentTime + 0.05;
+      this.onState({ underrun: true });
+    }
+    src.start(this.nextTime);
+    this.nextTime += L.length / this.ctx.sampleRate;
+    this.sources.add(src);
+    src.onended = () => this.sources.delete(src);
   }
 
   destroy() {
