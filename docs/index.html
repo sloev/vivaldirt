@@ -4,134 +4,98 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Vivaldi Real Time</title>
-  <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year with Paulstretch. Each concerto lasts exactly its three-month season, and the playhead is always at the present moment.">
-  <meta name="theme-color" content="#14161a">
+  <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year. The playhead is always at the present moment.">
+  <meta name="theme-color" content="#e8e4d9">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="css/style.css">
   <link rel="modulepreload" href="js/app.js">
 </head>
-<body data-season="spring">
+<body>
+  <div class="paper" aria-hidden="true">
+    <div class="grain"></div>
+    <div class="geo geo-1"></div>
+    <div class="geo geo-2"></div>
+    <div class="geo geo-3"></div>
+    <div class="score-wash" id="score-wash"></div>
+  </div>
+
   <header class="top">
-    <h1>Vivaldi <span>Real Time</span></h1>
-    <p class="tagline">The Four Seasons, stretched across the year. Each concerto lasts as long as its season.</p>
+    <span class="ident">VIVALDI / REAL TIME</span>
+    <span class="presence" id="presence"><i class="dot"></i> <span id="presence-text">—</span></span>
   </header>
 
-  <main class="layout">
-    <section class="panel clock" aria-label="Position in the year">
-      <svg id="dial" viewBox="-110 -110 220 220" role="img" aria-labelledby="dial-title">
-        <title id="dial-title">The year as a clock: four seasons, one concerto each</title>
-        <g id="dial-arcs"></g>
-        <g id="dial-mvts"></g>
-        <line id="needle" x1="0" y1="-46" x2="0" y2="-99"></line>
-        <text id="dial-season" y="-6" text-anchor="middle"></text>
-        <text id="dial-date" y="12" text-anchor="middle"></text>
-        <text id="dial-time" y="26" text-anchor="middle"></text>
-      </svg>
+  <main class="stage">
+    <h1 class="title">THE FOUR<br>SEASONS.</h1>
+    <p class="kicker">ANTONIO VIVALDI · OP. 8</p>
 
-      <div class="where">
-        <div class="mode"><span id="mode-badge" class="badge live">Live</span> <span id="clock-now"></span></div>
-        <h2 id="concerto"></h2>
-        <p id="movement"></p>
-        <div class="bar-line">
-          <span id="bar"></span>
-          <div class="meter" aria-hidden="true"><div id="meter-fill"></div></div>
-        </div>
-        <p id="next-bar" class="muted"></p>
-        <p id="stretch" class="muted"></p>
-      </div>
-
-      <div class="controls">
-        <button id="play" class="play" aria-label="Play">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M8 5v14l11-7z"/></svg>
-          <span id="play-label">Listen now</span>
-        </button>
-        <label class="volume" title="Volume">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
-          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
-        </label>
-      </div>
-      <p id="status" class="status" role="status" aria-live="polite"></p>
-
-      <details class="travel">
-        <summary>Time travel &amp; settings</summary>
-        <label>Jump to
-          <input id="when" type="datetime-local" step="60">
-        </label>
-        <div class="row">
-          <button id="go" type="button">Go</button>
-          <button id="now" type="button">Back to now</button>
-        </div>
-        <label>Hemisphere
-          <select id="hemisphere">
-            <option value="north">Northern (spring 1 Mar · summer 1 Jun · autumn 1 Sep · winter 1 Dec)</option>
-            <option value="south">Southern (spring 1 Sep · summer 1 Dec · autumn 1 Mar · winter 1 Jun)</option>
-          </select>
-        </label>
-      </details>
+    <section class="clock" aria-live="polite">
+      <div class="time" id="time">--:--:--</div>
+      <div class="date" id="date"></div>
+      <div class="where" id="where"></div>
+      <div class="meta" id="meta"></div>
     </section>
 
-    <section class="panel score" aria-label="Score">
-      <div class="score-head">
-        <div>
-          <strong id="score-title"></strong>
-          <span id="score-page" class="muted"></span>
-        </div>
-        <div class="score-nav">
-          <button id="prev" type="button" aria-label="Previous page">‹</button>
-          <button id="follow" type="button" class="on" aria-pressed="true">Follow</button>
-          <button id="next" type="button" aria-label="Next page">›</button>
-        </div>
+    <nav class="nav">
+      <button id="play" type="button" aria-pressed="false">Listen</button>
+      <button id="travel" type="button">Time travel</button>
+      <button id="score-btn" type="button">Score</button>
+      <button id="about" type="button">About</button>
+    </nav>
+  </main>
+
+  <div class="season-label" id="season-label">WINTER / I</div>
+
+  <aside class="sheet" id="sheet-travel" hidden>
+    <header><span>Time travel</span><button type="button" data-close>Close</button></header>
+    <div class="body">
+      <p>The music is always where the year is.</p>
+      <label>Jump to <input id="when" type="datetime-local" step="60"></label>
+      <div class="row">
+        <button id="go" type="button">Go there</button>
+        <button id="now" type="button">Back to now</button>
       </div>
-      <div id="score-scroll" class="score-scroll">
+      <label>Hemisphere
+        <select id="hemisphere">
+          <option value="north">Northern</option>
+          <option value="south">Southern</option>
+        </select>
+      </label>
+    </div>
+  </aside>
+
+  <aside class="sheet wide" id="sheet-score" hidden>
+    <header>
+      <span>Score <span id="score-title" class="faint"></span></span>
+      <span class="score-nav">
+        <button id="prev" type="button">‹</button>
+        <span id="score-page" class="faint"></span>
+        <button id="next" type="button">›</button>
+        <button id="follow" type="button" class="on">Follow</button>
+        <button type="button" data-close>Close</button>
+      </span>
+    </header>
+    <div class="body score-body">
+      <div id="score-scroll">
         <div id="page" class="page">
           <img id="page-img" alt="Score page" decoding="async">
-          <div id="sys-mark" class="sys-mark"></div>
-          <div id="bar-mark" class="bar-mark"></div>
           <div id="cursor" class="cursor"></div>
         </div>
       </div>
-    </section>
-  </main>
+    </div>
+  </aside>
 
-  <footer class="credits">
-    <section>
-      <h3>Recording</h3>
-      <p>From <em>The Four Seasons</em> by Antonio Vivaldi<br>
-        Live, unedited performance<br>
-        Wiedemann Recital Hall, Wichita State University<br>
-        John Harrison – Violin | Robert Turizziani – Conductor<br>
-        The Wichita State University Chamber Players<br>
-        <a href="https://johnharrison.cc/the-four-seasons/">johnharrison.cc</a></p>
-      <p>Licensed <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> (originally released under
-        <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a> via the Free Music Archive). Audio files taken from the
-        <a href="https://archive.org/details/The_Four_Seasons_Vivaldi-10361">Internet Archive</a>.
-        <strong>Changes made:</strong> silence between movements trimmed, movements joined and cut into lossless FLAC segments,
-        and time-stretched with Paulstretch in your browser. The adapted audio is shared under the same licence.</p>
-    </section>
-    <section>
-      <h3>Sheet music</h3>
-      <p>Antonio Vivaldi, <em>Le quattro stagioni</em>, Op. 8 Nos. 1–4 (RV 269, 315, 293, 297), edited by Eleanor Selfridge-Field,
-        from <em>“The Four Seasons” and Other Violin Concertos in Full Score</em>, Dover Publications, New York, 1995.
-        Scanned by archive.org; uploaded to <a href="https://clara.imslp.org/work/126435">IMSLP</a> by Feduol
-        (files <a href="https://imslp.org/wiki/Special:ReverseLookup/799159">#799159</a>,
-        <a href="https://imslp.org/wiki/Special:ReverseLookup/799160">#799160</a>,
-        <a href="https://imslp.org/wiki/Special:ReverseLookup/799162">#799162</a>,
-        <a href="https://imslp.org/wiki/Special:ReverseLookup/799163">#799163</a>). Public domain per IMSLP.</p>
-      <p>The bar cursor is an estimate: bars are taken to be of equal length within each movement, except in Summer II,
-        where it follows the Presto thunderclaps in the recording.</p>
-    </section>
-    <section>
-      <h3>Software</h3>
-      <p>Paulstretch algorithm by Nasca Octavian Paul. WebAssembly build from
-        <a href="https://github.com/olilarkin/paulstretch-for-web">paulstretch-for-web</a> /
-        <a href="https://github.com/olilarkin/libpaulstretch">libpaulstretch</a> by Oli Larkin (GPL-2.0).
-        <a href="https://github.com/sloev/vivaldirt">Source code of this site</a>.</p>
-    </section>
-  </footer>
+  <aside class="sheet" id="sheet-about" hidden>
+    <header><span>About</span><button type="button" data-close>Close</button></header>
+    <div class="body">
+      <p>Vivaldi’s <em>Four Seasons</em> stretched across the year. Each concerto lasts exactly its season. The playhead is always at the present moment.</p>
+      <label>Volume <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+      <p class="small">Recording: John Harrison & Wichita State University Chamber Players (CC BY-SA 4.0). Score: public domain via IMSLP. Paulstretch by Nasca Octavian Paul.</p>
+      <p class="small"><a href="https://github.com/sloev/vivaldirt">Source</a></p>
+    </div>
+  </aside>
 
   <script type="module" src="js/app.js"></script>
 </body>
