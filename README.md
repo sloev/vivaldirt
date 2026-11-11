@@ -4,10 +4,14 @@ Vivaldi's *Four Seasons* stretched across the whole year. Each concerto is time-
 [Paulstretch](https://hypermammut.sourceforge.net/paulstretch/) so that it lasts exactly as long as
 its calendar season. Spring runs 1 March – 31 May, summer 1 June – 31 August, autumn 1 September – 30 November,
 and winter 1 December – end of February. The playhead is always at the present moment.
-Right now you are hearing one bar of Vivaldi stretched over several hours, and the printed score
-shows where you are.
+Right now you are hearing one bar of Vivaldi stretched over several hours.
 
-A static PWA served by GitHub Pages from `docs/`. It works on desktop and mobile, can be installed,
+The page is a single, slowly mutating artwork: dithered brutalist architecture with the actual engraved
+score built into its planes. The staff lines continue as perspective lines, notes invert where they pass
+into shadow, and a hairline playhead is cut through the bar being played. The interface is a few lines of
+type laid into the composition. A live counter shows how many people are listening right now.
+
+It is a static PWA served by GitHub Pages from `docs/`. It works on desktop and mobile, can be installed,
 and works offline once loaded.
 
 ## How it works
@@ -19,6 +23,9 @@ and works offline once loaded.
 | `docs/js/engine.js` | Fetches only the segments around the playhead, decodes them with Web Audio and schedules the stretched blocks back to back. |
 | `docs/js/stretch-worker.js` | Runs Paulstretch (WebAssembly, one `StreamingStretcher` per channel) in a Web Worker. |
 | `docs/score/` | Score pages as 4-level grey PNGs (~40–70 KB each) and `score.json`, which records every system and barline. Barlines were detected automatically and checked against the printed bar numbers. |
+| `docs/js/composition.js` | The architecture as a **pure function of time and music**. Four extruded boxes and two score planes are seeded per movement and recomposed separately for portrait and landscape. Each movement hands over to the next layout during its last 3 %. Quiet passages open the space up and loud ones close it in (`docs/audio/dynamics.json`, built by `tools/build_dynamics.py`). The light follows the local time of day, and each season has its own tonal character. Slow drifts of 4–28 minutes make the piece visibly different after a minute but almost still at a glance. Everyone sees the same image at the same moment, and time travel moves the architecture too. |
+| `docs/js/art.js` | WebGL1 fragment shader drawn at one canvas pixel per dither dot (2 CSS px, or 1.5 on phones), scaled up with nearest-neighbour sampling. It draws concrete faces, fbm texture, pores and a skylight beam. The score page is mapped onto the planes with homographies, and the staff lines extend as perspective lines. Everything is ordered-dithered (8×8 Bayer) into the four-tone palette. Runs at 15 fps; with `prefers-reduced-motion` the drift is frozen and it redraws every 20 s. Falls back to Canvas 2D without WebGL. |
+| `docs/js/presence.js` | The live listener count (see below). |
 | `docs/sw.js` | Service worker. The app shell is cached up front; recently used score pages and audio segments are cached as you go. |
 
 ### Data budget
@@ -31,6 +38,28 @@ downloaded by anyone.
 No `SharedArrayBuffer` is used, so no cross-origin-isolation headers are needed. That matters because
 GitHub Pages can't send them.
 
+## Listener count (Trystero + Nostr)
+
+The "● N LISTENING" counter is real and needs **no backend and no configuration**. Pages join one
+[Trystero](https://github.com/dmotz/trystero) room. Signalling goes over public Nostr relays, and the peers
+then talk over WebRTC data channels.
+
+- Each user publishes a signed per-user state `{on, ts}`, where `on` is true only while audio is actually
+  playing (the AudioContext is running). Paused visitors are not counted.
+- Users count once. Tabs in the same browser share a Trystero user id, and they agree over a
+  `BroadcastChannel` that the person is listening if any tab is playing.
+- Stale sessions are dropped. Users leave on disconnect or when the tab closes (`pagehide`), heartbeats are
+  sent every 20 s, and anyone silent for 65 s is no longer counted.
+- If no relay can be reached within 20 s, the counter says **COUNT UNAVAILABLE** instead of showing a number.
+- Visitors can opt out in IV — About; then nothing connects. As with any WebRTC connection, peers can
+  see each other's IP addresses, and the About sheet says so.
+- The app id and room name are constants at the top of `docs/js/presence.js`. The library is vendored as a
+  single ES module in `docs/vendor/trystero/`, rebuilt with
+  `npx esbuild` from `trystero` 0.27 (`export { joinRoom, getRelaySockets } from 'trystero'`).
+
+Full-mesh WebRTC works well up to a few dozen simultaneous listeners. Trystero's `scale` plugin is the
+next step if it ever gets busier than that.
+
 ## Deploying
 
 In the repository settings, go to **Pages → Build and deployment → Deploy from a branch** and choose
@@ -40,7 +69,7 @@ the default branch with the `/docs` folder.
 
 ```bash
 npm run serve        # python3 -m http.server -d docs 8000, then open http://localhost:8000
-npm test             # node --test: season boundaries, recording mapping, score map
+npm test             # node --test: season boundaries, recording mapping, score map, composition
 ```
 
 ## Rebuilding the data
@@ -52,6 +81,7 @@ tools/fetch_audio.sh build/src                       # 12 MP3s from the Internet
 python3 tools/build_audio.py build/src docs/audio    # trim silence, cut into FLAC segments + playlist
 # put the four IMSLP PDFs in build/pdf as spring.pdf, summer.pdf, autumn.pdf, winter.pdf
 python3 tools/build_score.py build/pdf docs/score docs/audio/manifest.json
+python3 tools/build_dynamics.py docs/audio          # loudness envelope that drives the artwork
 python3 tools/make_icons.py docs/icons
 ```
 
@@ -102,4 +132,8 @@ these scans "EU": public domain in the EU, Canada and similar jurisdictions, tho
 - The WebAssembly build in `docs/vendor/paulstretch/` comes from Oli Larkin's
   [paulstretch-for-web](https://github.com/olilarkin/paulstretch-for-web) /
   [libpaulstretch](https://github.com/olilarkin/libpaulstretch). It is GPL-2.0; see `docs/vendor/paulstretch/LICENSE`.
+- [Trystero](https://github.com/dmotz/trystero) (MIT) and [@noble/secp256k1](https://github.com/paulmillr/noble-secp256k1) (MIT),
+  bundled in `docs/vendor/trystero/` with their licences.
+- Type: [Bodoni Moda](https://github.com/indestructible-type/Bodoni) and [IBM Plex](https://github.com/IBM/plex),
+  self-hosted in `docs/fonts/` under the SIL Open Font License.
 - The rest of this project's code is public domain (see `LICENSE.md`).
