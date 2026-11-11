@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Vivaldi Real Time</title>
+  <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year with Paulstretch. Each concerto lasts exactly as long as its season, and the playhead is always at the present moment.">
+  <meta name="theme-color" content="#14161a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="modulepreload" href="js/app.js">
+</head>
+<body data-season="spring">
+  <header class="top">
+    <h1>Vivaldi <span>Real Time</span></h1>
+    <p class="tagline">The Four Seasons, stretched across the year. Each concerto lasts as long as its season.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel clock" aria-label="Position in the year">
+      <svg id="dial" viewBox="-110 -110 220 220" role="img" aria-labelledby="dial-title">
+        <title id="dial-title">The year as a clock: four seasons, one concerto each</title>
+        <g id="dial-arcs"></g>
+        <g id="dial-mvts"></g>
+        <line id="needle" x1="0" y1="-46" x2="0" y2="-99"></line>
+        <text id="dial-season" y="-6" text-anchor="middle"></text>
+        <text id="dial-date" y="12" text-anchor="middle"></text>
+        <text id="dial-time" y="26" text-anchor="middle"></text>
+      </svg>
+
+      <div class="where">
+        <div class="mode"><span id="mode-badge" class="badge live">Live</span> <span id="clock-now"></span></div>
+        <h2 id="concerto"></h2>
+        <p id="movement"></p>
+        <div class="bar-line">
+          <span id="bar"></span>
+          <div class="meter" aria-hidden="true"><div id="meter-fill"></div></div>
+        </div>
+        <p id="next-bar" class="muted"></p>
+        <p id="stretch" class="muted"></p>
+      </div>
+
+      <div class="controls">
+        <button id="play" class="play" aria-label="Play">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M8 5v14l11-7z"/></svg>
+          <span id="play-label">Listen now</span>
+        </button>
+        <label class="volume" title="Volume">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
+        </label>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <details class="travel">
+        <summary>Time travel &amp; settings</summary>
+        <label>Jump to
+          <input id="when" type="datetime-local" step="60">
+        </label>
+        <div class="row">
+          <button id="go" type="button">Go</button>
+          <button id="now" type="button">Back to now</button>
+        </div>
+        <label>Hemisphere
+          <select id="hemisphere">
+            <option value="north">Northern (spring starts at the March equinox)</option>
+            <option value="south">Southern (spring starts at the September equinox)</option>
+          </select>
+        </label>
+      </details>
+    </section>
+
+    <section class="panel score" aria-label="Score">
+      <div class="score-head">
+        <div>
+          <strong id="score-title"></strong>
+          <span id="score-page" class="muted"></span>
+        </div>
+        <div class="score-nav">
+          <button id="prev" type="button" aria-label="Previous page">‹</button>
+          <button id="follow" type="button" class="on" aria-pressed="true">Follow</button>
+          <button id="next" type="button" aria-label="Next page">›</button>
+        </div>
+      </div>
+      <div id="score-scroll" class="score-scroll">
+        <div id="page" class="page">
+          <img id="page-img" alt="Score page" decoding="async">
+          <div id="sys-mark" class="sys-mark"></div>
+          <div id="bar-mark" class="bar-mark"></div>
+          <div id="cursor" class="cursor"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="credits">
+    <p><strong>Recording:</strong> <em>The Four Seasons</em> – John Harrison with the Wichita State University Chamber Players,
+      <a href="https://archive.org/details/The_Four_Seasons_Vivaldi-10361">via the Free Music Archive / Internet Archive</a>,
+      licensed <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>.
+      The audio here is that recording, with silence trimmed between movements, cut into lossless FLAC segments and time-stretched live in your browser.</p>
+    <p><strong>Score:</strong> Vivaldi, <em>Le quattro stagioni</em>, Op. 8 Nos. 1–4 (Dover edition), public domain, from
+      <a href="https://clara.imslp.org/work/126435">IMSLP #126435</a>. The bar cursor is an estimate: bars are taken to be of equal length within each movement, except in Summer II, where it follows the Presto thunderclaps in the recording.</p>
+    <p><strong>Paulstretch</strong> by Nasca Octavian Paul. WebAssembly build from
+      <a href="https://github.com/olilarkin/paulstretch-for-web">paulstretch-for-web</a> by Oli Larkin (GPL-2.0).
+      <a href="https://github.com/sloev/vivaldirt">Source code</a>.</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
