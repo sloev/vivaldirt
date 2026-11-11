@@ -1,14 +1,22 @@
-import { positionAt } from './seasons.js';
+import { positionAt, SEASONS } from './seasons.js';
+import { Engine } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
+const BASE = new URL('.', import.meta.url);
 const NAMES = {
   spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter'
 };
 const ROMAN = ['I', 'II', 'III'];
 
-const state = { offset: 0, hemisphere: localStorage.getItem('hemisphere') || 'north' };
-const vnow = () => Date.now() + state.offset;
+const state = {
+  offset: 0,
+  hemisphere: localStorage.getItem('hemisphere') || 'north',
+  follow: true,
+  scoreMap: null,
+  page: 1,
+};
 
+const vnow = () => Date.now() + state.offset;
 const clockFmt = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
 });
@@ -16,23 +24,33 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
   day: 'numeric', month: 'long', year: 'numeric'
 });
 
+async function loadJSON(path) {
+  const r = await fetch(new URL(path, BASE));
+  if (!r.ok) throw new Error(path + ' ' + r.status);
+  return r.json();
+}
+
+async function loadPlaylist(path) {
+  const r = await fetch(new URL(path, BASE));
+  const text = await r.text();
+  const base = new URL(path, BASE);
+  return text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(u => new URL(u, base).href);
+}
+
+let engine;
+
 function update() {
   try {
     const t = vnow();
     const pos = positionAt(t, state.hemisphere);
-    const timeEl = $('time');
-    const dateEl = $('date');
-    const whereEl = $('where');
-    const metaEl = $('meta');
-    const seasonEl = $('season-label');
-    if (timeEl) timeEl.textContent = clockFmt.format(t);
-    if (dateEl) dateEl.textContent = dateFmt.format(t).toUpperCase();
-    if (whereEl) whereEl.textContent = `${NAMES[pos.season]} — ${ROMAN[pos.movement - 1]}.`;
-    if (metaEl) metaEl.textContent = `Bar ~${Math.max(1, Math.floor(pos.fraction * 160))} · stretch ~×12500`;
-    if (seasonEl) seasonEl.textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
+    if ($('time')) $('time').textContent = clockFmt.format(t);
+    if ($('date')) $('date').textContent = dateFmt.format(t).toUpperCase();
+    if ($('where')) $('where').textContent = `${NAMES[pos.season]} — ${ROMAN[pos.movement - 1]}.`;
+    if ($('meta')) $('meta').textContent = `Bar ~${Math.max(1, Math.floor(pos.fraction * 160))} · stretch ~×12500`;
+    if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
   } catch (err) {
-    console.error('update', err);
+    console.error(err);
   }
 }
 
@@ -40,57 +58,124 @@ function openSheet(id) {
   document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
   const el = $(id);
   if (el) el.hidden = false;
+  if (id === 'sheet-score') showScorePage();
 }
 function closeSheets() {
   document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
 }
 
-function bind() {
-  const travel = $('travel');
-  const scoreBtn = $('score-btn');
-  const about = $('about');
-  const play = $('play');
-  if (travel) travel.addEventListener('click', () => openSheet('sheet-travel'));
-  if (scoreBtn) scoreBtn.addEventListener('click', () => openSheet('sheet-score'));
-  if (about) about.addEventListener('click', () => openSheet('sheet-about'));
+function showScorePage() {
+  const pos = positionAt(vnow(), state.hemisphere);
+  const season = pos.season;
+  const page = state.page || 1;
+  const img = $('page-img');
+  const title = $('score-title');
+  const pageLabel = $('score-page');
+  if (title) title.textContent = `· ${NAMES[season]}`;
+  if (pageLabel) pageLabel.textContent = String(page);
+  if (img) {
+    img.src = new URL(`../score/${season}-${String(page).padStart(2, '0')}.png`, BASE).href;
+    img.onload = () => { const p = $('page'); if (p) p.classList.add('show'); };
+  }
+}
+
+async function main() {
+  let playlist = [];
+  let manifest = {};
+  try {
+    [manifest, state.scoreMap, playlist] = await Promise.all([
+      loadJSON('../audio/manifest.json').catch(() => ({})),
+      loadJSON('../score/score.json').catch(() => null),
+      loadPlaylist('../audio/playlist.m3u8').catch(() => []),
+    ]);
+  } catch (err) {
+    console.warn('data load', err);
+  }
+
+  engine = new Engine({
+    manifest,
+    playlist,
+    base: BASE,
+    onState: (s) => {
+      const el = $('meta');
+      if (!el) return;
+      if (s.error) el.textContent = s.error;
+      else if (s.message) el.textContent = s.message;
+    },
+  });
+
+  const vol = localStorage.getItem('volume');
+  if (vol != null && $('volume')) {
+    $('volume').value = vol;
+    engine.setVolume(+vol);
+  }
+
+  $('travel')?.addEventListener('click', () => openSheet('sheet-travel'));
+  $('score-btn')?.addEventListener('click', () => openSheet('sheet-score'));
+  $('about')?.addEventListener('click', () => openSheet('sheet-about'));
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
 
-  const go = $('go');
-  const nowBtn = $('now');
-  const when = $('when');
-  const hemisphere = $('hemisphere');
-  if (go) go.addEventListener('click', () => {
-    if (!when || !when.value) return;
-    state.offset = new Date(when.value).getTime() - Date.now();
+  $('go')?.addEventListener('click', () => {
+    const v = $('when')?.value;
+    if (!v) return;
+    state.offset = new Date(v).getTime() - Date.now();
     update();
     closeSheets();
   });
-  if (nowBtn) nowBtn.addEventListener('click', () => {
+  $('now')?.addEventListener('click', () => {
     state.offset = 0;
-    if (when) when.value = '';
+    if ($('when')) $('when').value = '';
     update();
     closeSheets();
   });
-  if (hemisphere) {
-    hemisphere.value = state.hemisphere;
-    hemisphere.addEventListener('change', (e) => {
-      state.hemisphere = e.target.value;
-      try { localStorage.setItem('hemisphere', state.hemisphere); } catch {}
-      update();
-    });
-  }
-  if (play) play.addEventListener('click', () => {
-    const on = play.getAttribute('aria-pressed') === 'true';
-    play.setAttribute('aria-pressed', String(!on));
-    play.textContent = on ? 'Listen' : 'Pause';
+  $('hemisphere')?.addEventListener('change', (e) => {
+    state.hemisphere = e.target.value;
+    try { localStorage.setItem('hemisphere', state.hemisphere); } catch {}
+    update();
   });
+  if ($('hemisphere')) $('hemisphere').value = state.hemisphere;
+
+  $('volume')?.addEventListener('input', (e) => {
+    engine.setVolume(e.target.value);
+    try { localStorage.setItem('volume', e.target.value); } catch {}
+  });
+
+  $('play')?.addEventListener('click', async () => {
+    const btn = $('play');
+    if (engine.playing) {
+      engine.pause();
+      btn.setAttribute('aria-pressed', 'false');
+      btn.textContent = 'Listen';
+    } else {
+      try {
+        await engine.start(0, 12500);
+        btn.setAttribute('aria-pressed', 'true');
+        btn.textContent = 'Pause';
+      } catch (err) {
+        console.error(err);
+        if ($('meta')) $('meta').textContent = 'Audio failed to start';
+      }
+    }
+  });
+
+  $('prev')?.addEventListener('click', () => {
+    state.page = Math.max(1, (state.page || 1) - 1);
+    showScorePage();
+  });
+  $('next')?.addEventListener('click', () => {
+    state.page = (state.page || 1) + 1;
+    showScorePage();
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+
+  setInterval(update, 1000);
+  update();
 }
 
-// Register SW with new version so old caches are dropped
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
-
-bind();
-setInterval(update, 1000);
-update();
+main().catch((err) => {
+  console.error(err);
+  if ($('meta')) $('meta').textContent = 'Failed to start: ' + err.message;
+});
