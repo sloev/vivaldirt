@@ -1,7 +1,7 @@
 {
   "name": "Vivaldi Real Time – The Four Seasons across the year",
   "short_name": "Vivaldi RT",
-  "description": "Vivaldi's Four Seasons stretched with Paulstretch so each concerto lasts its whole season, always playing at the present moment.",
+  "description": "Vivaldi's Four Seasons stretched with Paulstretch so each concerto lasts its whole three-month season, always playing at the present moment.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

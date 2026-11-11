@@ -1,4 +1,4 @@
-import { positionAt, scoreAt, fractionForBar, seasonEvent, SEASONS } from './seasons.js';
+import { positionAt, scoreAt, fractionForBar, seasonStarts, SEASONS } from './seasons.js';
 import { Engine } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
@@ -67,15 +67,10 @@ function toLocalInput(t) {
 
 // ---------- year dial ----------
 function cycleAt(t, hemisphere) {
-  // the four season boundaries of the cycle (starting at "spring") containing t
-  const y = new Date(t).getUTCFullYear();
-  const shift = hemisphere === 'south' ? 2 : 0;
-  const ev = [];
-  for (let yy = y - 2; yy <= y + 1; yy++) {
-    for (let k = 0; k < 4; k++) ev.push({ season: (k + shift) % 4, t: seasonEvent(yy, k) });
-  }
+  // the four season boundaries of the cycle (starting at spring) containing t
+  const ev = seasonStarts(t, hemisphere);
   let i = ev.length - 1;
-  while (i >= 0 && !(ev[i].season === 0 && ev[i].t <= t)) i--;
+  while (i >= 0 && !(ev[i].index === 0 && ev[i].t <= t)) i--;
   return ev.slice(i, i + 5).map((e) => e.t);
 }
 
@@ -258,7 +253,7 @@ async function main() {
     $('next-bar').textContent = nextIsMovement
       ? `Next movement in ${fmtDuration(toNextMv)} (${shortDate.format(new Date(t + toNextMv))})`
       : `Next bar in ${fmtDuration(toNextBar)} · each bar lasts about ${fmtDuration(barMs)}`;
-    $('stretch').textContent = `Stretched ×${Math.round(p.stretch).toLocaleString()}: one second of the recording lasts ${fmtDuration(p.stretch * 1000)}. ${NAMES[p.season].title} ends ${shortDate.format(new Date(p.end))}.`;
+    $('stretch').textContent = `Stretched ×${Math.round(p.stretch).toLocaleString()}: one second of the recording lasts ${fmtDuration(p.stretch * 1000)}. ${NAMES[p.season].title} runs ${shortDate.format(new Date(p.start))} – ${shortDate.format(new Date(p.end - 1))}.`;
 
     if (playing) engine.setStretch(p.stretch);
     if ('mediaSession' in navigator && playing) {

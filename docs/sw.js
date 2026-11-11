@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached up front; score pages and audio
 // segments are cached as they are used (they never change), keeping only the
 // most recent ones so the cache stays small.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `shell-${VERSION}`;
 const MEDIA = 'media-v1';
 const MEDIA_MAX = 24;

@@ -1,31 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { seasonEvent, seasonAt, positionAt, scoreAt, fractionForBar } from '../docs/js/seasons.js';
+import { seasonAt, positionAt, scoreAt, fractionForBar } from '../docs/js/seasons.js';
 
 const manifest = JSON.parse(fs.readFileSync(new URL('../docs/audio/manifest.json', import.meta.url)));
 const score = JSON.parse(fs.readFileSync(new URL('../docs/score/score.json', import.meta.url)));
 
-test('equinoxes and solstices match published times (±2 min)', () => {
-  const known = [
-    [2026, 0, '2026-03-20T14:46Z'], [2026, 1, '2026-06-21T08:24Z'],
-    [2026, 2, '2026-09-23T00:05Z'], [2026, 3, '2026-12-21T20:50Z'],
-    [2024, 0, '2024-03-20T03:06Z'], [2030, 3, '2030-12-21T20:09Z'],
-  ];
-  for (const [y, k, iso] of known) {
-    assert.ok(Math.abs(seasonEvent(y, k) - Date.parse(iso)) < 120_000, `${y}/${k}`);
-  }
+test('seasons follow the calendar (meteorological seasons)', () => {
+  const at = (y, m, d, h = 12) => seasonAt(new Date(y, m - 1, d, h).getTime()).season;
+  assert.equal(at(2026, 2, 28), 'winter');
+  assert.equal(at(2026, 3, 1, 0), 'spring');
+  assert.equal(at(2026, 5, 31, 23), 'spring');
+  assert.equal(at(2026, 6, 1, 0), 'summer');
+  assert.equal(at(2026, 8, 31), 'summer');
+  assert.equal(at(2026, 9, 1, 0), 'autumn');
+  assert.equal(at(2026, 11, 30, 23), 'autumn');
+  assert.equal(at(2026, 12, 1, 0), 'winter');
+  assert.equal(at(2027, 1, 15), 'winter');
+  const s = seasonAt(new Date(2026, 9, 15).getTime());
+  assert.equal(s.start, new Date(2026, 8, 1).getTime());
+  assert.equal(s.end, new Date(2026, 11, 1).getTime());
 });
 
 test('hemispheres are half a year apart', () => {
-  const t = Date.parse('2026-07-01T00:00Z');
+  const t = new Date(2026, 6, 1, 12).getTime();
   assert.equal(seasonAt(t, 'north').season, 'summer');
   assert.equal(seasonAt(t, 'south').season, 'winter');
 });
 
 test('the recording position is continuous across season boundaries', () => {
-  for (let k = 0; k < 4; k++) {
-    const b = seasonEvent(2026, k);
+  for (const month of [2, 5, 8, 11]) {
+    const b = new Date(2026, month, 1).getTime();
+    const k = month;
     const before = positionAt(b - 1, manifest);
     const after = positionAt(b + 1, manifest);
     const gap = Math.abs(after.frame - before.frame);
@@ -36,7 +42,7 @@ test('the recording position is continuous across season boundaries', () => {
 });
 
 test('each concerto lasts exactly its season', () => {
-  const p = positionAt(Date.parse('2026-05-01T00:00Z'), manifest);
+  const p = positionAt(new Date(2026, 3, 15).getTime(), manifest);
   const frames = manifest.movements.filter((m) => m.season === 'spring');
   const len = (frames.at(-1).end - frames[0].start) / manifest.sampleRate;
   assert.ok(Math.abs(len * p.stretch - (p.end - p.start) / 1000) < 1e-3);
