@@ -1,8 +1,21 @@
+@font-face {
+  font-family: "Vivaldirt Bodoni Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(../fonts/vivaldirt-bodoni-condensed.woff2) format("woff2");
+}
+
 :root {
-  --paper: #e8e4d9;
-  --ink: #1a1916;
-  --mid: #5c5a52;
-  --faint: #9a978c;
+  --paper: #eae9e3;
+  --concrete: #c7c6bf;
+  --mid: #777873;
+  --charcoal: #252522;
+  --ink: #171715;
+  --red: #8e3b32;
+  --display: "Vivaldirt Bodoni Condensed", "Libre Bodoni", "Bodoni 72 Condensed", "Bodoni MT Condensed", "Times New Roman", Times, serif;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   --gutter: clamp(20px, 4vw, 48px);
   color-scheme: light;
 }
@@ -12,7 +25,7 @@ html, body { margin: 0; height: 100%; }
 body {
   background: var(--paper);
   color: var(--ink);
-  font: 15px/1.45 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font: 15px/1.45 var(--sans);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -26,41 +39,40 @@ body {
 .grain {
   position: absolute; inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-  opacity: 0.35;
+  opacity: 0.38;
   mix-blend-mode: multiply;
 }
 .geo {
   position: absolute;
-  background: #2a2925;
-  opacity: 0.88;
+  background: var(--charcoal);
+  opacity: 0.9;
 }
 .geo-1 {
-  right: 0; top: 8%;
-  width: 42%; height: 55%;
-  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 78%);
+  right: 0; top: 6%;
+  width: 44%; height: 58%;
+  clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 76%);
 }
 .geo-2 {
-  right: 8%; top: 38%;
-  width: 28%; height: 42%;
+  right: 6%; top: 36%;
+  width: 30%; height: 44%;
   background: #1f1e1b;
-  clip-path: polygon(0 12%, 100% 0, 100% 100%, 22% 100%);
-  opacity: 0.92;
+  clip-path: polygon(0 14%, 100% 0, 100% 100%, 20% 100%);
 }
 .geo-3 {
   right: 0; bottom: 0;
-  width: 36%; height: 28%;
-  background: #33322d;
-  clip-path: polygon(35% 0, 100% 18%, 100% 100%, 0 100%);
+  width: 38%; height: 30%;
+  background: #2e2d28;
+  clip-path: polygon(32% 0, 100% 16%, 100% 100%, 0 100%);
 }
 .score-wash {
   position: absolute;
-  left: 0; top: 22%;
-  width: 62%; height: 48%;
-  opacity: 0.22;
+  left: 0; top: 20%;
+  width: 64%; height: 50%;
+  opacity: 0.2;
   background-size: cover;
   background-position: left center;
   mix-blend-mode: multiply;
-  filter: contrast(1.15) grayscale(1);
+  filter: contrast(1.2) grayscale(1);
 }
 
 .top {
@@ -68,11 +80,13 @@ body {
   left: var(--gutter); right: var(--gutter);
   top: max(env(safe-area-inset-top), 16px);
   display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono);
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--mid);
 }
 .presence { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
 .presence .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.presence.live .dot { background: var(--red); }
 
 .stage {
   position: relative; z-index: 2;
@@ -85,17 +99,18 @@ body {
 
 .title {
   margin: clamp(72px, 14vh, 140px) 0 0;
-  font-family: "Times New Roman", Times, "Libre Bodoni", serif;
+  font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(42px, 7.2vw, 96px);
-  line-height: 0.92;
+  font-size: clamp(44px, 7.4vw, 104px);
+  line-height: 0.9;
   letter-spacing: 0.01em;
   text-transform: uppercase;
 }
 .kicker {
   margin: 14px 0 0;
-  font-size: 13px;
-  letter-spacing: 0.12em;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--mid);
 }
@@ -103,19 +118,19 @@ body {
 .clock {
   margin-top: auto;
   margin-bottom: 88px;
-  max-width: 28ch;
+  max-width: 30ch;
 }
 .time {
-  font-family: "Times New Roman", Times, serif;
+  font-family: var(--display);
   font-weight: 700;
   font-size: clamp(36px, 5vw, 64px);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
-.date { margin-top: 6px; font-size: 14px; color: var(--mid); }
-.where { margin-top: 10px; font-size: 15px; font-weight: 600; }
-.meta { margin-top: 4px; font-size: 13px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.date { margin-top: 6px; font-size: 14px; color: var(--mid); font-family: var(--mono); letter-spacing: 0.04em; }
+.where { margin-top: 10px; font-size: 15px; font-weight: 500; }
+.meta { margin-top: 4px; font-size: 12px; color: var(--mid); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 .nav {
   position: fixed; z-index: 2;
@@ -134,8 +149,9 @@ body {
   position: fixed; z-index: 2;
   right: var(--gutter);
   bottom: max(env(safe-area-inset-bottom), 22px);
-  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: #c8c4b8;
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--concrete);
 }
 
 .sheet {
@@ -161,7 +177,7 @@ body {
   border-radius: 4px; padding: 8px 10px; font: inherit;
 }
 .row { display: flex; gap: 10px; margin-top: 12px; }
-.row button, .sheet .body > button {
+.row button {
   background: var(--ink); color: var(--paper); border: 0;
   padding: 10px 16px; border-radius: 4px; cursor: pointer; font: inherit;
 }
@@ -177,6 +193,6 @@ body {
 
 @media (max-width: 700px) {
   .title { font-size: clamp(36px, 11vw, 56px); }
-  .geo-1, .geo-2, .geo-3 { opacity: 0.7; }
+  .geo-1, .geo-2, .geo-3 { opacity: 0.75; }
   .nav { gap: 18px; }
 }
