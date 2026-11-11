@@ -1,9 +1,7 @@
-// Calendar (meteorological) seasons and the mapping from wall-clock time to
-// a position in the recording.
+/** Calendar (meteorological) seasons. Spring 1 Mar – 31 May, etc. */
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 
-/** Return the four season start timestamps that bracket t (and a few extra). */
 export function seasonStarts(t, hemisphere = 'north') {
   const d = new Date(t);
   const y = d.getFullYear();
@@ -13,7 +11,7 @@ export function seasonStarts(t, hemisphere = 'north') {
       ? [8, 11, 2, 5]   // Sep, Dec, Mar, Jun
       : [2, 5, 8, 11];  // Mar, Jun, Sep, Dec
     months.forEach((m, i) => {
-      const Y = hemisphere === 'south' && m < 6 ? yy + 1 : yy;
+      const Y = (hemisphere === 'south' && m < 6) ? yy + 1 : yy;
       out.push({ t: new Date(Y, m, 1).getTime(), index: i, season: SEASONS[i] });
     });
   }
@@ -21,7 +19,6 @@ export function seasonStarts(t, hemisphere = 'north') {
   return out;
 }
 
-/** Map an instant to season + movement + fraction through the season. */
 export function positionAt(t, hemisphere = 'north') {
   const starts = seasonStarts(t, hemisphere);
   let i = starts.length - 1;
@@ -42,10 +39,9 @@ export function positionAt(t, hemisphere = 'north') {
 
 export function scoreAt(t, hemisphere, scoreMap) {
   const pos = positionAt(t, hemisphere);
-  // Basic fallback when full score map not yet loaded
   return { ...pos, page: 1, system: 0, bar: 1, barInPage: 1 };
 }
 
-export function fractionForBar(season, movement, bar, scoreMap) {
+export function fractionForBar() {
   return 0;
 }
