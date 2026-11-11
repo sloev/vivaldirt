@@ -189,7 +189,10 @@ export class Engine {
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(this.gain);
-    if (this.nextTime < ctx.currentTime + 0.02) this.nextTime = ctx.currentTime + 0.05; // underrun
+    if (this.nextTime < ctx.currentTime + 0.02) { // underrun
+      this.nextTime = ctx.currentTime + 0.05;
+      this.onState({ underrun: true });
+    }
     src.start(this.nextTime);
     this.nextTime += L.length / ctx.sampleRate;
     this.sources.add(src);

@@ -11,8 +11,8 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="preload" href="fonts/bodoni-moda.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/vivaldirt-bodoni-condensed.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/plex-sans.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
   <link rel="modulepreload" href="js/app.js">
 </head>
@@ -20,70 +20,64 @@
   <canvas id="art" aria-hidden="true"></canvas>
 
   <div class="hud">
-    <header class="bar top">
-      <span class="ident mono">Vivaldi <i>/</i> Real&nbsp;Time</span>
-      <span id="presence" class="presence mono" title="People listening right now, counted peer-to-peer">
-        <i class="dot" aria-hidden="true"></i><span id="presence-text">—</span>
+    <header class="top">
+      <span class="ident caps" id="zone-ident">Vivaldi <i>/</i> Real Time</span>
+      <span id="presence" class="presence" title="People listening right now, counted peer-to-peer">
+        <i class="dot" aria-hidden="true"></i><span id="presence-text">Connecting</span>
       </span>
     </header>
 
     <section class="title-block" id="zone-title">
       <h1 class="title">The Four<br>Seasons.</h1>
-      <p class="kicker mono">Antonio Vivaldi <i>·</i> Op.&nbsp;8</p>
+      <p class="kicker">Antonio Vivaldi — <em>Le quattro stagioni</em>, Op.&nbsp;8</p>
     </section>
 
-    <section class="now-block">
-      <div class="clock" id="zone-clock">
-        <div id="time" class="time">--:--:--</div>
-        <div class="date-line mono"><span id="date"></span> <button id="mode" class="mode" type="button" hidden>Back to now</button></div>
-      </div>
-      <div class="where mono" id="zone-where" aria-live="polite">
-        <div id="where-main" class="where-main"></div>
-        <div id="where-title"></div>
-        <div id="where-bar"></div>
-        <div id="where-next" class="faint"></div>
-        <div id="status" class="faint status" role="status"></div>
-      </div>
+    <section class="inscription" id="zone-clock" aria-live="polite">
+      <div id="time" class="time">--:--:--</div>
+      <div class="date"><span id="date"></span> <button id="mode" class="mode" type="button" hidden>back to now</button></div>
+      <div id="where-main" class="where"></div>
+      <div id="where-bar" class="meta mono"></div>
+      <div id="status" class="meta mono status" role="status"></div>
     </section>
 
-    <nav class="bar bottom mono" id="zone-nav" aria-label="Controls">
-      <button id="nav-listen" type="button" aria-pressed="false"><span class="num">I</span> — <span id="listen-label">Listen</span></button>
-      <button id="nav-travel" type="button" aria-controls="sheet-travel"><span class="num">II</span> — Time travel</button>
-      <button id="nav-score" type="button" aria-controls="sheet-score"><span class="num">III</span> — Score</button>
-      <button id="nav-about" type="button" aria-controls="sheet-about"><span class="num">IV</span> — About</button>
+    <nav class="bottom" id="zone-nav" aria-label="Controls">
+      <button id="nav-listen" type="button" aria-pressed="false"><span id="listen-label">Listen</span></button>
+      <button id="nav-travel" type="button" aria-controls="sheet-travel">Time travel</button>
+      <button id="nav-score" type="button" aria-controls="sheet-score">Score</button>
+      <button id="nav-about" type="button" aria-controls="sheet-about">About</button>
     </nav>
   </div>
 
   <!-- II · time travel -->
   <aside class="sheet" id="sheet-travel" aria-label="Time travel" hidden>
-    <header class="sheet-head mono"><span>II — Time travel</span><button class="close" type="button" data-close>Close ×</button></header>
+    <header class="sheet-head"><span>Time travel</span><button class="close" type="button" data-close>Close</button></header>
     <div class="sheet-body">
       <p class="lede">The music is always where the year is. Move through the year to hear and see another moment.</p>
-      <label class="field mono">Through the year
+      <label class="field">Through the year
         <input id="scrub" type="range" min="0" max="1" step="0.0001" aria-describedby="scrub-out">
       </label>
-      <div class="ticks mono" aria-hidden="true"><span>Spring</span><span>Summer</span><span>Autumn</span><span>Winter</span></div>
+      <div class="ticks" aria-hidden="true"><span>Spring</span><span>Summer</span><span>Autumn</span><span>Winter</span></div>
       <output id="scrub-out" class="scrub-out mono"></output>
-      <label class="field mono">Exact moment
+      <label class="field">Exact moment
         <input id="when" type="datetime-local" step="60">
       </label>
       <div class="row">
-        <button id="go" type="button" class="btn mono">Go there</button>
-        <button id="now" type="button" class="btn mono">Back to now</button>
+        <button id="go" type="button" class="btn">Go there</button>
+        <button id="now" type="button" class="btn">Back to now</button>
       </div>
     </div>
   </aside>
 
   <!-- III · score -->
   <aside class="sheet wide" id="sheet-score" aria-label="Score" hidden>
-    <header class="sheet-head mono">
-      <span>III — Score <span id="score-title" class="faint"></span></span>
+    <header class="sheet-head">
+      <span>Score <span id="score-title" class="faint"></span></span>
       <span class="score-nav">
         <button id="prev" type="button" aria-label="Previous page">‹</button>
         <span id="score-page" class="faint"></span>
         <button id="next" type="button" aria-label="Next page">›</button>
         <button id="follow" type="button" aria-pressed="true" class="on">Follow</button>
-        <button class="close" type="button" data-close>Close ×</button>
+        <button class="close" type="button" data-close>Close</button>
       </span>
     </header>
     <div id="score-scroll" class="score-scroll">
@@ -98,26 +92,26 @@
 
   <!-- IV · about & settings -->
   <aside class="sheet" id="sheet-about" aria-label="About and settings" hidden>
-    <header class="sheet-head mono"><span>IV — About</span><button class="close" type="button" data-close>Close ×</button></header>
+    <header class="sheet-head"><span>About</span><button class="close" type="button" data-close>Close</button></header>
     <div class="sheet-body">
       <p class="lede">Vivaldi’s <em>Four Seasons</em>, stretched across the year. Each concerto lasts exactly as long as its season: spring from 1&nbsp;March, summer from 1&nbsp;June, autumn from 1&nbsp;September, winter from 1&nbsp;December. The music is always at the present moment, one bar every few hours, time-stretched live in your browser with Paulstretch.</p>
-      <p>The architecture is drawn from the score and the recording. It reorganises with each movement, opens up in quiet passages and closes in when the music is loud, follows the light of the day, and changes character with the seasons. Everyone who opens it at the same moment sees the same image.</p>
-      <p id="stretch" class="mono small"></p>
+      <p>The building is made from the music. The system being played is engraved on its main face, the next one wraps around the corner, and the staff lines run on around the whole building as formwork lines. A cut in the facade marks the playhead. Each movement raises a different massing, and the cantilevers reach further as the movement unfolds. The perforations and the softness of the shadows follow the loudness of the recording. The sun is the real sun of this moment, at the season of the piece. Everyone who opens it at the same moment sees the same building.</p>
+      <p id="stretch" class="small mono"></p>
 
-      <h2 class="mono">Settings</h2>
-      <label class="field mono">Volume
+      <h2>Settings</h2>
+      <label class="field">Volume
         <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8">
       </label>
-      <label class="field mono">Hemisphere
+      <label class="field">Hemisphere
         <select id="hemisphere">
           <option value="north">Northern — spring 1 Mar, summer 1 Jun, autumn 1 Sep, winter 1 Dec</option>
           <option value="south">Southern — spring 1 Sep, summer 1 Dec, autumn 1 Mar, winter 1 Jun</option>
         </select>
       </label>
-      <label class="check mono"><input id="presence-on" type="checkbox" checked> Take part in the listener count</label>
+      <label class="check"><input id="presence-on" type="checkbox" checked> Take part in the listener count</label>
       <p class="small">The count is peer-to-peer (WebRTC via public Nostr relays), with no server of ours. As with any WebRTC connection, browsers in the room can see each other’s IP addresses. Only whether you are listening is shared. Turn it off and nothing connects.</p>
 
-      <h2 class="mono">Recording</h2>
+      <h2>Recording</h2>
       <p class="small">From <em>The Four Seasons</em> by Antonio Vivaldi<br>
         Live, unedited performance<br>
         Wiedemann Recital Hall, Wichita State University<br>
@@ -130,7 +124,7 @@
         Changes made: silence between movements trimmed, movements joined and cut into lossless FLAC segments,
         time-stretched with Paulstretch in your browser. The adapted audio is shared under the same licence.</p>
 
-      <h2 class="mono">Sheet music</h2>
+      <h2>Sheet music</h2>
       <p class="small">Antonio Vivaldi, <em>Le quattro stagioni</em>, Op. 8 Nos. 1–4 (RV 269, 315, 293, 297), edited by Eleanor Selfridge-Field,
         from <em>“The Four Seasons” and Other Violin Concertos in Full Score</em>, Dover Publications, New York, 1995.
         Scanned by archive.org; uploaded to <a href="https://clara.imslp.org/work/126435">IMSLP</a> by Feduol
@@ -141,11 +135,11 @@
         The bar cursor is an estimate: bars are taken to be of equal length within each movement, except in Summer II,
         where it follows the Presto thunderclaps in the recording.</p>
 
-      <h2 class="mono">Software &amp; type</h2>
+      <h2>Software &amp; type</h2>
       <p class="small">Paulstretch by Nasca Octavian Paul; WebAssembly build from
         <a href="https://github.com/olilarkin/paulstretch-for-web">paulstretch-for-web</a> by Oli Larkin (GPL-2.0).
         Presence by <a href="https://github.com/dmotz/trystero">Trystero</a> (MIT).
-        Type: Bodoni Moda and IBM Plex (SIL Open Font License).
+        Type: Vivaldirt Bodoni Condensed, derived from <a href="https://github.com/googlefonts/Libre-Bodoni">Libre Bodoni</a> to match the Bodoni Bold Condensed of the <em>Ghost in the Shell</em> (1995) title, and IBM Plex (both SIL Open Font License).
         <a href="https://github.com/sloev/vivaldirt">Source code</a>.</p>
     </div>
   </aside>

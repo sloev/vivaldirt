@@ -146,27 +146,46 @@ async function main() {
   };
 
   // ----- the artwork -----
-  const art = new Artwork($('art'), { base: BASE });
-  const zones = () => {
+  // The building stands in the space the typography leaves free: to the
+  // right of the text column on wide screens, between title and
+  // inscription on a phone held upright.
+  const art = new Artwork($('art'));
+  const portrait = () => innerWidth <= 700 && innerHeight > innerWidth;
+  const layout = () => {
     const r = (el) => el.getBoundingClientRect();
-    const title = r($('zone-title').querySelector('.title'));
-    const kick = r($('zone-title').querySelector('.kicker'));
-    const nav = r($('zone-nav'));
-    document.documentElement.style.setProperty('--nav-h', `${Math.round(innerHeight - nav.top)}px`);
-    const union = (a, b) => ({ left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom) });
-    const pad = (a, x) => ({ left: a.left - x, top: a.top - x, right: a.right + x, bottom: a.bottom + x });
-    art.setZones([
-      union(title, kick),
-      pad(r($('zone-clock').querySelector('.date-line')), 4),
-      pad(r($('zone-where')), 6),
-      pad(r(document.querySelector('.ident')), 6), pad(r($('presence')), 6),
-      pad(nav, 0),
-    ]);
-    return nav.top / innerHeight;
+    const W = innerWidth;
+    const H = innerHeight;
+    const title = r($('zone-title'));
+    const ins = r($('zone-clock'));
+    const top = r(document.querySelector('.hud .top'));
+    if (portrait()) {
+      art.bleed = 0.9;
+      art.setFrame([0, title.bottom + H * 0.035, W, ins.top - H * 0.035]);
+    } else {
+      art.bleed = 0.12;
+      const x0 = Math.max(title.right, ins.right) + Math.max(28, W * 0.04);
+      art.setFrame([x0, top.bottom + H * 0.05, W, Math.min(H * 0.82, H - 64)]);
+    }
   };
-  let groundY = zones();
-  addEventListener('resize', () => { groundY = zones(); });
-  document.fonts?.ready.then(() => { groundY = zones(); });
+  layout();
+  addEventListener('resize', layout);
+  document.fonts?.ready.then(layout);
+
+  // Text lies on the scene like an inscription: dark on light ground, light
+  // where the building or a shadow passes beneath it.
+  const inscribed = () => [document.querySelector('.hud .ident'), $('presence'), $('zone-title'), $('zone-clock'), $('zone-nav')];
+  function adaptText() {
+    for (const el of inscribed()) {
+      const l = art.sampleLuminance(el.getBoundingClientRect());
+      if (l < 0.42) el.classList.add('on-dark');
+      else if (l > 0.5) el.classList.remove('on-dark');
+    }
+  }
+  setInterval(() => {
+    if (!document.hidden) adaptText();
+    // on wide screens the inscription stands in the sky, just above the horizon
+    if (!portrait() && art.horizon) document.documentElement.style.setProperty('--horizon', `${Math.round(innerHeight - art.horizon)}px`);
+  }, 5000);
 
   // the music's dynamics around the playhead (±3 s of recording ≈ ±10 hours)
   const intensityAt = (frame) => {
@@ -183,7 +202,7 @@ async function main() {
   const presence = new Presence({
     onChange: ({ status: st, count }) => {
       const el = $('presence');
-      el.className = `presence mono ${st}`;
+      el.className = `presence ${st}${el.classList.contains('on-dark') ? ' on-dark' : ''}`;
       $('presence-text').textContent = st === 'live' ? `${count ?? 0} listening`
         : st === 'connecting' ? 'Connecting'
           : st === 'off' ? 'Count off' : 'Count unavailable';
@@ -205,6 +224,7 @@ async function main() {
     playlist,
     base: BASE,
     onState: (s) => {
+      if (s.underrun) { art.degrade(); return; }
       if (s.error) status(s.error, true);
       else if (s.loading) status('Fetching a few seconds of Vivaldi…');
       else if (s.bytes !== undefined && playing) status(`${(s.bytes / 1e6).toFixed(1)} MB of audio this session`);
@@ -223,45 +243,49 @@ async function main() {
     $('time').textContent = clockFmt.format(d);
     $('date').textContent = dateFmt.format(d);
     $('mode').hidden = !state.offset;
-    $('where-main').textContent = `${NAMES[p.season].title} / ${ROMAN[p.movement.movement - 1]}`;
-    $('where-title').textContent = p.movement.title;
     const barNo = Math.floor(at.bar) + mv.firstNumber;
-    $('where-bar').textContent = `Bar ${barNo} of ${mv.measures - 1 + mv.firstNumber}`;
-
     const mvFrames = p.movement.end - p.movement.start;
     const msPerFrame = (1000 * p.stretch) / manifest.sampleRate;
     const curBar = Math.floor(at.bar);
     const fNext = fractionForBar(mv, curBar + 1);
     const toNextBar = (fNext - p.movementFraction) * mvFrames * msPerFrame;
     const toNextMv = (p.movement.end - p.frame) * msPerFrame;
-    $('where-next').textContent = toNextMv <= toNextBar + 1000
-      ? `Next movement in ${fmtDuration(toNextMv)}`
-      : `Next bar in ${fmtDuration(toNextBar)}`;
+    $('where-main').textContent = `${NAMES[p.season].title} — ${ROMAN[p.movement.movement - 1]}. ${p.movement.title}`;
+    $('where-bar').textContent = `Bar ${barNo} of ${mv.measures - 1 + mv.firstNumber} · ${toNextMv <= toNextBar + 1000
+      ? `next movement in ${fmtDuration(toNextMv)}`
+      : `next bar in ${fmtDuration(toNextBar)}`}`;
     $('stretch').textContent = `Stretched ×${Math.round(p.stretch).toLocaleString()} — one second of the recording lasts ${fmtDuration(p.stretch * 1000)}. ${NAMES[p.season].title} runs ${shortDate.format(new Date(p.start))} – ${shortDate.format(new Date(p.end - 1))}.`;
 
     // feed the artwork
     const mi = manifest.movements.indexOf(p.movement);
     const nm = manifest.movements[(mi + 1) % manifest.movements.length];
     const sysIdx = mv.systems.indexOf(at.system);
-    const other = mv.systems[sysIdx + 1] || mv.systems[sysIdx - 1];
+    // the next system in the music (the first of the next movement at the end)
+    let other = mv.systems[sysIdx + 1];
+    let otherSeason = p.season;
+    if (!other) {
+      const nmv = score.movements.find((x) => x.season === nm.season && x.movement === nm.movement);
+      other = nmv?.systems[0];
+      otherSeason = nm.season;
+    }
     art.setMusic({
       t,
-      key: `${p.season}${p.movement.movement}`,
-      nextKey: `${nm.season}${nm.movement}`,
+      key: { season: p.season, movement: p.movement.movement },
+      nextKey: { season: nm.season, movement: nm.movement },
       mvFraction: p.movementFraction,
       season: p.season,
       nextSeason: SEASONS[(SEASONS.indexOf(p.season) + 1) % 4],
+      seasonIndex: SEASONS.indexOf(p.season),
       seasonFraction: p.fraction,
       intensity: intensityAt(p.frame),
       hour: d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600,
       systems: [
         { url: pageUrl(p.season, at.page), system: at.system },
-        other ? { url: pageUrl(p.season, other.page), system: other } : null,
+        other ? { url: pageUrl(otherSeason, other.page), system: other } : null,
       ],
       cursorX: at.x,
       barIndex: at.barIndex,
       pageAspect: score.pageAspect,
-      groundY,
     });
 
     if (state.sheet === 'sheet-score') drawScoreSheet(p, score, mv, at);
