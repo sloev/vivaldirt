@@ -1,5 +1,4 @@
-// Network-first shell + aggressive update so the installed PWA stays current.
-const VERSION = 'v14';
+const VERSION = 'v16';
 const SHELL = `shell-${VERSION}`;
 const MEDIA = 'media-v2';
 
@@ -34,7 +33,6 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-// Let the page force an update cycle
 self.addEventListener('message', (e) => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
@@ -60,7 +58,6 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Always try network first for app shell so updates land without hard refresh
   e.respondWith((async () => {
     try {
       const res = await fetch(e.request, { cache: 'no-store' });
