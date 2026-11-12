@@ -1,6 +1,6 @@
 // Always composite three distinct plates + fullscreen score.
 // Continuous vertical fade: 20% art until below clock, then 3 lines → 100%.
-import { plateUrl, plateCount, plateIndexAt } from './weeks.js';
+import { plateUrl, plateCount } from './weeks.js';
 
 function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -23,14 +23,12 @@ export function yearComposite3(date = new Date()) {
   const yearFrac = ((Math.max(1, day) - 1) % 365) / 365;
   const n = Math.max(1, plateCount());
 
-  // Continuous position across plate sequence
   const pos = yearFrac * n;
   const i0 = Math.floor(pos) % n;
   const t = easeInOut(pos - Math.floor(pos));
   const iPrev = (i0 - 1 + n) % n;
   const iNext = (i0 + 1) % n;
 
-  // Stronger side layers so the mix is visible
   const aPrev = (1 - t) * 0.45;
   const aNext = t * 0.45;
   const aCurr = 1 - aPrev - aNext;
@@ -81,12 +79,10 @@ export class Art2D {
     const vh = innerHeight || 1;
     if (clock) {
       const r = clock.getBoundingClientRect();
-      // just below sub-subline (clock)
       this.fadeStartY = (r.bottom + line * 0.25) / vh;
     } else {
       this.fadeStartY = 0.3;
     }
-    // three lineheights to full opacity
     this.fadeEndY = this.fadeStartY + (3 * line) / vh;
   }
 
@@ -137,7 +133,7 @@ export class Art2D {
     const W = this.canvas.width, H = this.canvas.height;
     const iw = im.naturalWidth || im.width;
     const ih = im.naturalHeight || im.height;
-    const scale = Math.max(W / iw, H / ih) * 1.04; // slight overscale so offset shows mix
+    const scale = Math.max(W / iw, H / ih) * 1.04;
     const dw = iw * scale, dh = ih * scale;
     const dx = (W - dw) / 2 + offsetX;
     const dy = (H - dh) / 2 + offsetY;
@@ -152,11 +148,6 @@ export class Art2D {
     ctx.globalCompositeOperation = 'screen';
     ctx.globalAlpha = 0.38;
     ctx.fillStyle = '#464646';
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = 0.07;
-    ctx.fillStyle = '#c8c4bc';
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
@@ -206,7 +197,6 @@ export class Art2D {
         const lum = src[i] / 255;
         const ink = lum < 0.88 ? (0.88 - lum) / 0.88 : 0;
         const grit = Math.pow(ink, 1.05);
-        // More present overall so the mix with architecture is obvious
         const a = Math.round(grit * (0.35 + 0.65 * m) * 230);
         d[i] = 6; d[i + 1] = 6; d[i + 2] = 5; d[i + 3] = a;
       }
@@ -238,11 +228,10 @@ export class Art2D {
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
 
-    // Paper base
-    ctx.fillStyle = '#eae9e3';
+    // Neutral dark base only — no paper wash/texture behind the art
+    ctx.fillStyle = '#1c1b19';
     ctx.fillRect(0, 0, W, H);
 
-    // Build full-opacity art offscreen
     const off = this._artOff || (this._artOff = document.createElement('canvas'));
     off.width = W;
     off.height = H;
@@ -255,7 +244,6 @@ export class Art2D {
 
     for (const layer of layers) this._getPlate(layer.index);
 
-    // Slight spatial offset per layer so the mix reads as multiple photos
     const offsets = [
       { x: -W * 0.02, y: -H * 0.015 },
       { x: 0, y: 0 },
@@ -266,21 +254,10 @@ export class Art2D {
       const im = this.cache.get(layer.index);
       if (!im) return;
       const o = offsets[i] || { x: 0, y: 0 };
-      // Use lighter blend on side layers so detail from each shows through
-      if (i === 1) {
-        this._coverDraw(octx, im, layer.alpha, o.x, o.y);
-      } else {
-        octx.save();
-        octx.globalCompositeOperation = 'source-over';
-        this._coverDraw(octx, im, layer.alpha, o.x, o.y);
-        octx.restore();
-      }
+      this._coverDraw(octx, im, layer.alpha, o.x, o.y);
     });
 
-    // If still loading, show whatever we have
-    if (![...this.cache.values()].some(Boolean)) {
-      // wait
-    } else if (layers.every((l) => !this.cache.get(l.index))) {
+    if (layers.every((l) => !this.cache.get(l.index))) {
       for (const im of this.cache.values()) {
         if (im) { this._coverDraw(octx, im, 1); break; }
       }
@@ -296,7 +273,6 @@ export class Art2D {
     octx.fillStyle = grd;
     octx.fillRect(0, 0, W, H);
 
-    // Continuous vertical opacity: 20% until fadeStart, ease to 100% by fadeEnd
     this._measureFade();
     const y1 = this.fadeStartY * H;
     const y2 = Math.min(H, this.fadeEndY * H);
