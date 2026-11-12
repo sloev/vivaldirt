@@ -57,7 +57,7 @@ body {
   position: fixed; z-index: 2;
   left: var(--gutter); right: var(--gutter);
   top: max(env(safe-area-inset-top), 16px);
-  display: flex; justify-content: space-between; align-items: baseline;
+  display: flex; justify-content: flex-end; align-items: baseline;
   font-family: var(--mono);
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ink);
@@ -75,12 +75,13 @@ body {
 }
 .stage button { pointer-events: auto; }
 
+/* Bodoni only on the main title */
 .title {
   margin: clamp(72px, 14vh, 140px) 0 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(44px, 7.4vw, 104px);
-  line-height: 0.9;
+  font-size: clamp(40px, 6.8vw, 96px);
+  line-height: 0.92;
   letter-spacing: 0.01em;
   text-transform: uppercase;
   color: var(--ink);
@@ -102,14 +103,13 @@ body {
   max-width: 30ch;
 }
 .time {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: clamp(36px, 5vw, 64px);
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: clamp(28px, 4.2vw, 48px);
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   color: var(--ink);
-  text-shadow: 0 1px 0 rgba(255,255,255,0.1), 0 0 20px rgba(234,233,227,0.3);
 }
 .date {
   margin-top: 6px;
@@ -123,6 +123,7 @@ body {
   margin-top: 10px;
   font-size: 15px;
   font-weight: 500;
+  font-family: var(--sans);
   color: var(--ink);
 }
 
@@ -168,6 +169,17 @@ body {
 }
 .about-body h2:first-child { margin-top: 0; }
 .about-body a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.about-body a.support {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.about-body a.support:hover { opacity: 0.88; }
 .sheet label { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; font-size: 14px; color: var(--ink); }
 .sheet input, .sheet select {
   background: #f3efe6; border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
@@ -181,6 +193,6 @@ body {
 .small { font-size: 13px; color: var(--charcoal); }
 
 @media (max-width: 700px) {
-  .title { font-size: clamp(36px, 11vw, 56px); }
+  .title { font-size: clamp(32px, 10vw, 52px); }
   .nav { gap: 18px; }
 }

@@ -1,6 +1,7 @@
 import { positionAt, SEASONS } from './seasons.js';
 import { Engine } from './engine.js';
 import { Art2D } from './art2d.js';
+import { Presence } from './presence.js';
 
 const $ = (id) => document.getElementById(id);
 const BASE = new URL('.', import.meta.url);
@@ -74,6 +75,18 @@ function stretchFactor(t) {
 
 let engine;
 let art;
+let presence;
+
+function renderPresence({ status, count }) {
+  const el = $('presence');
+  const text = $('presence-text');
+  if (!text) return;
+  el?.classList.toggle('live', status === 'live');
+  if (status === 'connecting') text.textContent = '…';
+  else if (status === 'unavailable') text.textContent = '—';
+  else if (count == null) text.textContent = '—';
+  else text.textContent = count === 1 ? '1 listening' : `${count} listening`;
+}
 
 function update() {
   try {
@@ -82,7 +95,6 @@ function update() {
     if ($('time')) $('time').textContent = clockFmt.format(t);
     if ($('date')) $('date').textContent = dateFmt.format(t).toUpperCase();
     if ($('where')) $('where').textContent = `${NAMES[pos.season]} — ${ROMAN[pos.movement - 1]}.`;
-    // Stretch factor only in About
     const aboutStretch = $('about-stretch');
     if (aboutStretch) {
       aboutStretch.textContent = `Right now the stretch factor is about ×${Math.round(stretchFactor(t))}.`;
@@ -125,7 +137,8 @@ async function main() {
   const canvas = $('art');
   if (canvas) art = new Art2D(canvas);
 
-  if ($('presence-text')) $('presence-text').textContent = '—';
+  presence = new Presence({ onChange: renderPresence });
+  presence.start();
 
   let playlist = [];
   try {
@@ -144,7 +157,6 @@ async function main() {
     playlist,
     base: new URL('../audio/', BASE),
     onState: (s) => {
-      // Keep stage clean — only log errors
       if (s.error) console.warn(s.error);
     },
   });
@@ -178,12 +190,14 @@ async function main() {
       await engine.pause();
       btn.setAttribute('aria-pressed', 'false');
       btn.textContent = 'Listen';
+      presence?.setPlaying(false);
     } else {
       try {
         const t = vnow();
         await engine.start(frameAt(t), stretchFactor(t));
         btn.setAttribute('aria-pressed', 'true');
         btn.textContent = 'Pause';
+        presence?.setPlaying(true);
       } catch (err) {
         console.error(err);
       }
