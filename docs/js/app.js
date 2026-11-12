@@ -9,12 +9,28 @@ const NAMES = {
 };
 const ROMAN = ['I', 'II', 'III'];
 
+function guessHemisphere() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    // Southern hemisphere zones (rough but practical)
+    if (/Australia|Pacific\/Auckland|Pacific\/Fiji|Africa\/Johannesburg|America\/Sao_Paulo|America\/Argentina|America\/Santiago|Antarctica|Indian\/Mauritius/.test(tz)) {
+      return 'south';
+    }
+    // Latitude from locale is not available; use language region heuristics
+    const loc = (navigator.language || '').toLowerCase();
+    if (loc.endsWith('-au') || loc.endsWith('-nz') || loc.endsWith('-za') || loc.endsWith('-ar') || loc.endsWith('-cl') || loc.endsWith('-br')) {
+      return 'south';
+    }
+  } catch {}
+  return 'north';
+}
+
 const state = {
   offset: 0,
-  hemisphere: localStorage.getItem('hemisphere') || 'north',
+  hemisphere: localStorage.getItem('hemisphere') || guessHemisphere(),
   scoreMap: null,
   manifest: null,
-  page: 1,
+  openSheet: null,
 };
 
 const vnow = () => Date.now() + state.offset;
@@ -82,7 +98,7 @@ function update() {
     if ($('where')) $('where').textContent = `${NAMES[pos.season]} — ${ROMAN[pos.movement - 1]}.`;
     if ($('meta')) {
       const st = engine?.playing ? 'LIVE' : '';
-      $('meta').textContent = `Bar ~${Math.max(1, Math.floor(pos.fraction * 160))} · ×${Math.round(stretchFactor(t))} ${st}`;
+      $('meta').textContent = `×${Math.round(stretchFactor(t))} ${st}`;
     }
     if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
@@ -99,23 +115,21 @@ function update() {
 function openSheet(id) {
   document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
   const el = $(id);
-  if (el) el.hidden = false;
-  if (id === 'sheet-score') showScorePage();
-}
-function closeSheets() {
-  document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
+  if (!el) return;
+  el.hidden = false;
+  state.openSheet = id;
+  // Push history so Android/browser back closes the sheet
+  if (!history.state || history.state.sheet !== id) {
+    history.pushState({ sheet: id }, '');
+  }
 }
 
-function showScorePage() {
-  const pos = positionAt(vnow(), state.hemisphere);
-  const season = pos.season;
-  const page = state.page || 1;
-  const img = $('page-img');
-  if ($('score-title')) $('score-title').textContent = `· ${NAMES[season]}`;
-  if ($('score-page')) $('score-page').textContent = String(page);
-  if (img) {
-    img.src = new URL(`../score/${season}-${String(page).padStart(2, '0')}.png`, BASE).href;
-    img.onload = () => $('page')?.classList.add('show');
+function closeSheets(fromPop) {
+  document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
+  const had = state.openSheet;
+  state.openSheet = null;
+  if (had && !fromPop && history.state?.sheet) {
+    history.back();
   }
 }
 
@@ -131,13 +145,11 @@ async function main() {
 
   let playlist = [];
   try {
-    const [manifest, scoreMap, pl] = await Promise.all([
+    const [manifest, pl] = await Promise.all([
       loadJSON('../audio/manifest.json'),
-      loadJSON('../score/score.json').catch(() => null),
       loadPlaylist('../audio/playlist.m3u8'),
     ]);
     state.manifest = manifest;
-    state.scoreMap = scoreMap;
     playlist = pl;
   } catch (err) {
     console.warn('data load', err);
@@ -154,16 +166,13 @@ async function main() {
     },
   });
 
-  const vol = localStorage.getItem('volume');
-  if (vol != null && $('volume')) {
-    $('volume').value = vol;
-    engine.setVolume(+vol);
-  }
-
   $('travel')?.addEventListener('click', () => openSheet('sheet-travel'));
-  $('score-btn')?.addEventListener('click', () => openSheet('sheet-score'));
   $('about')?.addEventListener('click', () => openSheet('sheet-about'));
-  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeSheets(false)));
+
+  addEventListener('popstate', () => {
+    if (state.openSheet) closeSheets(true);
+  });
 
   $('go')?.addEventListener('click', () => {
     const v = $('when')?.value;
@@ -171,14 +180,14 @@ async function main() {
     state.offset = new Date(v).getTime() - Date.now();
     update();
     resyncAudio();
-    closeSheets();
+    closeSheets(false);
   });
   $('now')?.addEventListener('click', () => {
     state.offset = 0;
     if ($('when')) $('when').value = '';
     update();
     resyncAudio();
-    closeSheets();
+    closeSheets(false);
   });
   $('hemisphere')?.addEventListener('change', (e) => {
     state.hemisphere = e.target.value;
@@ -187,11 +196,6 @@ async function main() {
     resyncAudio();
   });
   if ($('hemisphere')) $('hemisphere').value = state.hemisphere;
-
-  $('volume')?.addEventListener('input', (e) => {
-    engine.setVolume(e.target.value);
-    try { localStorage.setItem('volume', e.target.value); } catch {}
-  });
 
   $('play')?.addEventListener('click', async () => {
     const btn = $('play');
@@ -210,15 +214,6 @@ async function main() {
         if ($('meta')) $('meta').textContent = 'Audio failed: ' + (err.message || err);
       }
     }
-  });
-
-  $('prev')?.addEventListener('click', () => {
-    state.page = Math.max(1, (state.page || 1) - 1);
-    showScorePage();
-  });
-  $('next')?.addEventListener('click', () => {
-    state.page = (state.page || 1) + 1;
-    showScorePage();
   });
 
   if ('serviceWorker' in navigator) {
