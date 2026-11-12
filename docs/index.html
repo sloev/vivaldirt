@@ -7,21 +7,16 @@
   <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year. The playhead is always at the present moment.">
   <meta name="theme-color" content="#eae9e3">
   <meta http-equiv="Cache-Control" content="no-cache">
-  <link rel="manifest" href="manifest.webmanifest?v=5">
+  <link rel="manifest" href="manifest.webmanifest?v=6">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="css/style.css?v=5">
-  <link rel="modulepreload" href="js/app.js?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="modulepreload" href="js/app.js?v=6">
 </head>
 <body>
-  <div class="paper" aria-hidden="true">
-    <div class="grain"></div>
-    <div class="geo geo-1"></div>
-    <div class="geo geo-2"></div>
-    <div class="geo geo-3"></div>
-    <div class="score-wash" id="score-wash"></div>
-  </div>
+  <canvas id="art" aria-hidden="true"></canvas>
+  <div class="score-wash" id="score-wash" aria-hidden="true"></div>
 
   <header class="top">
     <span class="ident">VIVALDI / REAL TIME</span>
@@ -48,7 +43,7 @@
   </main>
 
   <div class="season-label" id="season-label">WINTER / I</div>
-  <div class="build" id="build">build 5</div>
+  <div class="build">build 6</div>
 
   <aside class="sheet" id="sheet-travel" hidden>
     <header><span>Time travel</span><button type="button" data-close>Close</button></header>
@@ -95,10 +90,10 @@
       <p>Vivaldi’s <em>Four Seasons</em> stretched across the year. Each concerto lasts exactly its season. The playhead is always at the present moment.</p>
       <label>Volume <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label>
       <p class="small">Recording: John Harrison & Wichita State University Chamber Players (CC BY-SA 4.0). Score: public domain via IMSLP. Paulstretch by Nasca Octavian Paul.</p>
-      <p class="small"><a href="https://github.com/sloev/vivaldirt">Source</a> · build 5</p>
+      <p class="small"><a href="https://github.com/sloev/vivaldirt">Source</a> · build 6</p>
     </div>
   </aside>
 
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>
