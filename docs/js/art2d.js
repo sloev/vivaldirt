@@ -44,6 +44,45 @@ export function yearComposite3(date = new Date()) {
   };
 }
 
+// --- the top plate's slow wander ------------------------------------------
+// A chain of waypoints: drift to a spot, zoom in a little around it, ease
+// back out and wander to the next. Each leg lasts exactly as long as it takes
+// the fastest-moving point on screen to travel at 1 CSS px per 5 seconds.
+const WANDER_SPEED = 0.2; // CSS px per second
+const WANDER_EPOCH = Date.UTC(2026, 0, 1);
+
+function wanderKey(k) {
+  let a = (k * 2654435761) >>> 0;
+  const r = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const zoomed = k % 2 === 1; // every other waypoint leans in
+  return {
+    ox: 0.2 + 0.6 * r(), oy: 0.25 + 0.55 * r(),
+    z: zoomed ? 1.025 + 0.02 * r() : 1 + 0.006 * r(),
+    px: (r() - 0.5) * 0.02, py: (r() - 0.5) * 0.014,
+  };
+}
+/** Screen point (x, y) under waypoint f, for a W×H screen. */
+function wanderApply(f, x, y, W, H) {
+  const Ox = f.ox * W, Oy = f.oy * H;
+  return [Ox + (x - Ox) * f.z + f.px * W, Oy + (y - Oy) * f.z + f.py * H];
+}
+function wanderDuration(a, b, W, H) {
+  let d = 0;
+  for (const [x, y] of [[0, 0], [W, 0], [0, H], [W, H]]) {
+    const p = wanderApply(a, x, y, W, H);
+    const q = wanderApply(b, x, y, W, H);
+    d = Math.max(d, Math.hypot(p[0] - q[0], p[1] - q[1]));
+  }
+  return Math.max(30, d / WANDER_SPEED); // seconds
+}
+const smoothstep = (t) => t * t * (3 - 2 * t);
+
 export class Art2D {
   constructor(canvas) {
     this.canvas = canvas;
@@ -143,17 +182,45 @@ export class Art2D {
     this.setScoreSeason(seasonName);
   }
 
-  _coverDraw(ctx, im, alpha, offsetX = 0, offsetY = 0) {
+  /** Where the wander is now: an interpolated waypoint (CSS-px timing). */
+  _wander(nowMs) {
+    const W = innerWidth, H = innerHeight;
+    const t = (nowMs - WANDER_EPOCH) / 1000;
+    if (!this._wk || this._wW !== W || this._wH !== H || t < this._wStart) {
+      // find the current leg from the epoch (once, or after a resize)
+      this._wW = W; this._wH = H;
+      let k = 0, start = 0;
+      let dur = wanderDuration(wanderKey(0), wanderKey(1), W, H);
+      while (start + dur <= t) { start += dur; k++; dur = wanderDuration(wanderKey(k), wanderKey(k + 1), W, H); }
+      this._wk = k; this._wStart = start; this._wDur = dur;
+    }
+    while (this._wStart + this._wDur <= t) {
+      this._wStart += this._wDur; this._wk++;
+      this._wDur = wanderDuration(wanderKey(this._wk), wanderKey(this._wk + 1), W, H);
+    }
+    const a = wanderKey(this._wk), b = wanderKey(this._wk + 1);
+    const u = smoothstep((t - this._wStart) / this._wDur);
+    const m = (p, q) => p + (q - p) * u;
+    return { ox: m(a.ox, b.ox), oy: m(a.oy, b.oy), z: m(a.z, b.z), px: m(a.px, b.px), py: m(a.py, b.py) };
+  }
+
+  _coverDraw(ctx, im, alpha, offsetX = 0, offsetY = 0, wander = null) {
     if (!im || alpha <= 0.001) return;
     const W = this.canvas.width, H = this.canvas.height;
     const iw = im.naturalWidth || im.width;
     const ih = im.naturalHeight || im.height;
     const scale = Math.max(W / iw, H / ih) * 1.04;
     const dw = iw * scale, dh = ih * scale;
-    const dx = (W - dw) / 2 + offsetX;
-    const dy = (H - dh) / 2 + offsetY;
+    let dx = (W - dw) / 2 + offsetX;
+    let dy = (H - dh) / 2 + offsetY;
+    let w = dw, h = dh;
+    if (wander) {
+      // zoom about the waypoint's origin, then pan (sub-pixel: interpolated)
+      [dx, dy] = wanderApply(wander, dx, dy, W, H);
+      w = dw * wander.z; h = dh * wander.z;
+    }
     ctx.globalAlpha = Math.min(1, Math.max(0, alpha));
-    ctx.drawImage(im, dx, dy, dw, dh);
+    ctx.drawImage(im, dx, dy, w, h);
     ctx.globalAlpha = 1;
   }
 
@@ -313,14 +380,13 @@ export class Art2D {
 
     for (const layer of layers) this._getPlate(layer.index);
 
-    // the top plate drifts very slowly: a few percent of the screen over
-    // a quarter of an hour, back and forth
-    const ts = Date.now() / 1000;
     const offsets = [
       { x: -W * 0.02, y: -H * 0.015 },
       { x: 0, y: 0 },
-      { x: W * 0.02 + W * 0.03 * Math.sin((2 * Math.PI * ts) / 900), y: H * 0.015 + H * 0.015 * Math.sin((2 * Math.PI * ts) / 1300) },
+      { x: W * 0.02, y: H * 0.015 },
     ];
+    // the top plate wanders very slowly (see _wander)
+    const wander = this._wander(Date.now());
 
     layers.forEach((layer, i) => {
       const im = this.cache.get(layer.index);
@@ -329,7 +395,7 @@ export class Art2D {
       // multiply: each plate's grain and stains darken the ones beneath
       octx.save();
       octx.globalCompositeOperation = 'multiply';
-      this._coverDraw(octx, im, Math.max(0.55, layer.alpha), o.x, o.y);
+      this._coverDraw(octx, im, Math.max(0.55, layer.alpha), o.x, o.y, i === 2 ? wander : null);
       octx.restore();
     });
 
