@@ -16,9 +16,9 @@ const st = {
   stretch: 10000,
   stretchers: [],
   cursor: 0,
-  segs: new Map(), // index -> [Float32Array L, Float32Array R]
+  segs: new Map(),
   wanted: new Set(),
-  pending: 0, // blocks requested by the main thread but not yet delivered
+  pending: 0,
   generation: 0,
   busy: false,
 };
@@ -44,15 +44,16 @@ function build(stretch) {
   st.stretch = stretch;
 }
 
+function mod(a, n) {
+  return ((a % n) + n) % n;
+}
+
 function seek(msg) {
   st.generation = msg.generation;
   st.pending = 0;
   build(msg.stretch);
-  // A block's window is centred ~bufsize frames after the cursor it starts
-  // from, so start one bufsize early to hear `frame` right away.
   const bs = st.stretchers[0].bufsize();
   st.cursor = mod(Math.round(msg.frame) - bs, st.totalFrames);
-  // drop cached segments far from the new position
   for (const k of st.segs.keys()) {
     const seg0 = Math.floor(st.cursor / st.segFrames);
     if (Math.abs(k - seg0) > 2) st.segs.delete(k);
@@ -60,28 +61,21 @@ function seek(msg) {
   pump();
 }
 
-function mod(a, n) {
-  return ((a % n) + n) % n;
-}
-
-/** Ensure the segments covering [from, from+n) are cached; request missing ones. */
 function have(from, n) {
-  const nseg = Math.ceil(st.totalFrames / st.segFrames);
-  // walk the range the same way read() does, wrapping at the end of the
-  // timeline (the last segment is shorter than the others)
   const needed = [];
   let pos = mod(from, st.totalFrames);
   let left = n;
   while (left > 0) {
     const k = Math.floor(pos / st.segFrames);
-    if (!needed.includes(k)) needed.push(k);
-    const take = Math.min(left, Math.min((k + 1) * st.segFrames, st.totalFrames) - pos);
+    needed.push(k);
+    const off = pos - k * st.segFrames;
+    const take = Math.min(left, st.segFrames - off);
     left -= take;
     pos = mod(pos + take, st.totalFrames);
   }
+  const prefetch = Math.floor(mod(from + n, st.totalFrames) / st.segFrames);
   let ok = true;
-  const prefetch = (needed.at(-1) + 1) % nseg;
-  for (const idx of [...needed, prefetch]) {
+  for (const idx of [...new Set([...needed, prefetch])]) {
     if (!st.segs.has(idx)) {
       if (idx !== prefetch || needed.includes(idx)) ok = false;
       if (!st.wanted.has(idx)) {
@@ -102,10 +96,7 @@ function read(ch, from, n) {
     const seg = st.segs.get(k)[ch];
     const off = pos - k * st.segFrames;
     const take = Math.min(n - i, seg.length - off);
-    if (take <= 0) { // short segment at the very end of the timeline: wrap
-      pos = 0;
-      continue;
-    }
+    if (take <= 0) { pos = 0; continue; }
     out.set(seg.subarray(off, off + take), i);
     i += take;
     pos = mod(pos + take, st.totalFrames);
@@ -119,11 +110,9 @@ function pump() {
   try {
     while (st.pending > 0) {
       const want = st.stretchers[0].nextInputSize();
-      if (want > 0 && !have(st.cursor, want)) break; // wait for 'segment'
-      const pct = 0;
-      const outs = st.stretchers.map((s, ch) => s.step(want > 0 ? read(ch, st.cursor, want) : null, pct).output);
+      if (want > 0 && !have(st.cursor, want)) break;
+      const outs = st.stretchers.map((s, ch) => s.step(want > 0 ? read(ch, st.cursor, want) : null, 0).output);
       st.cursor = mod(st.cursor + want + st.stretchers[0].skipAfterStep(), st.totalFrames);
-      // evict segments well behind the cursor
       const cur = Math.floor(st.cursor / st.segFrames);
       for (const k of st.segs.keys()) if (k < cur - 1 && cur - k < 50) st.segs.delete(k);
       st.pending--;
@@ -140,11 +129,8 @@ self.onmessage = async (e) => {
   const msg = e.data;
   switch (msg.type) {
     case 'init':
-      try {
-        await init(msg);
-      } catch (err) {
-        post({ type: 'error', message: String(err && err.message || err) });
-      }
+      try { await init(msg); }
+      catch (err) { post({ type: 'error', message: String(err && err.message || err) }); }
       break;
     case 'seek':
       seek(msg);
@@ -161,8 +147,9 @@ self.onmessage = async (e) => {
       pump();
       break;
     case 'pull':
+    case 'request':
       if (msg.generation === st.generation) {
-        st.pending += msg.count;
+        st.pending += msg.count || 1;
         pump();
       }
       break;

@@ -1,46 +1,22 @@
-// Live listener count, peer-to-peer: Trystero (WebRTC) with Nostr relays
-// for signalling. No server of our own and no keys.
-//
-// Every open page joins one room and publishes a signed per-user state
-// {on, ts}: on = audio is actually playing. The count is the number of
-// distinct users whose state is "on", who are connected right now, and who
-// have sent a heartbeat recently. Tabs in the same browser share a Trystero
-// user id, and coordinate over a BroadcastChannel so that one playing tab
-// is enough to count the person once.
-const APP_ID = 'sloev.github.io/vivaldirt';
-const ROOM = 'listeners-v1';
-const HEARTBEAT_MS = 20_000;
-const STALE_MS = 65_000;
-const TAB_STALE_MS = 15_000;
+// Live listener count via Trystero (WebRTC) + Nostr signalling.
+// Count = self (if playing) + peers who recently said they are playing.
+
+const APP_ID = 'vivaldirt-stream-v2';
+const ROOM = 'listeners-v2';
+const HEARTBEAT_MS = 8_000;
+const STALE_MS = 40_000;
 
 export class Presence {
   constructor({ onChange }) {
     this.onChange = onChange;
-    this.status = 'off'; // off | connecting | live | unavailable
+    this.status = 'off';
     this.count = null;
     this.localPlaying = false;
-    this.published = null;
-    this.seen = new Map(); // userId -> last time we heard from them
-    this.tabs = new Map(); // other tabs of this browser: id -> {playing, at}
-    this.tabId = Math.random().toString(36).slice(2);
-    try {
-      this.bc = new BroadcastChannel('vivaldirt-presence');
-      this.bc.onmessage = (e) => {
-        const d = e.data;
-        if (!d || typeof d.tab !== 'string') return;
-        if (d.gone) this.tabs.delete(d.tab);
-        else this.tabs.set(d.tab, { playing: !!d.playing, at: Date.now() });
-        this._publish();
-      };
-    } catch { this.bc = null; }
-    addEventListener('pagehide', () => {
-      this.bc?.postMessage({ tab: this.tabId, gone: true });
-      this.room?.leave();
-    });
+    this.peers = new Map();
   }
 
   _emit() {
-    this.onChange({ status: this.status, count: this.count });
+    this.onChange?.({ status: this.status, count: this.count });
   }
 
   async start() {
@@ -48,28 +24,75 @@ export class Presence {
     this.starting = true;
     this.status = 'connecting';
     this._emit();
+
+    const urls = [
+      'https://cdn.jsdelivr.net/npm/trystero@0.20.0/nostr/+esm',
+      'https://unpkg.com/trystero@0.20.0/nostr.js',
+    ];
+
+    let joinRoom;
+    let lastErr;
+    for (const url of urls) {
+      try {
+        const mod = await import(url);
+        joinRoom = mod.joinRoom;
+        if (joinRoom) break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!joinRoom) {
+      console.warn('presence: trystero import failed', lastErr);
+      this.status = 'unavailable';
+      this.count = null;
+      this._emit();
+      this.starting = false;
+      return;
+    }
+
     try {
-      const { joinRoom, getRelaySockets } = await import('../vendor/trystero/trystero-nostr.min.js');
-      this.getRelaySockets = getRelaySockets;
-      const room = joinRoom({ appId: APP_ID }, ROOM);
+      const room = joinRoom(
+        {
+          appId: APP_ID,
+          relayUrls: [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://relay.snort.social',
+            'wss://nostr.wine',
+          ],
+        },
+        ROOM
+      );
       this.room = room;
-      this.state = room.makeUserState('listening', { on: false, ts: 0 }, {
-        maxBytes: 96,
-        validate: (v) => v && typeof v === 'object' && typeof v.on === 'boolean' && typeof v.ts === 'number',
-      });
-      this.state.onChange((v, ctx) => {
-        if (!ctx.self) this.seen.set(ctx.userId, Date.now());
-        if (ctx.removed) this.seen.delete(ctx.userId);
+      const [send, onAction] = room.makeAction('listen');
+      this._send = send;
+
+      onAction((data, peerId) => {
+        if (!data || typeof data !== 'object') return;
+        this.peers.set(String(peerId), {
+          on: !!data.on,
+          ts: typeof data.ts === 'number' ? data.ts : Date.now(),
+        });
         this._recount();
       });
-      room.onUserJoin(({ userId }) => { this.seen.set(userId, Date.now()); this._recount(); });
-      room.onUserLeave(({ userId }) => { this.seen.delete(userId); this._recount(); });
-      room.onError?.(() => this._recount());
-      room.getSelf().then((s) => { this.selfId = s.userId; this._recount(); }).catch(() => {});
-      this.published = null;
+
+      room.onPeerJoin((id) => {
+        // Introduce ourselves when someone joins
+        this._publish(true);
+        this._recount();
+      });
+      room.onPeerLeave((id) => {
+        this.peers.delete(String(id));
+        this._recount();
+      });
+
+      this.status = 'live';
       this._publish(true);
-      this.timer = setInterval(() => this._tick(), 5000);
-      this._tick();
+      this.timer = setInterval(() => {
+        this._publish();
+        this._recount();
+      }, HEARTBEAT_MS);
+      this._recount();
     } catch (err) {
       console.warn('presence unavailable:', err);
       this.status = 'unavailable';
@@ -82,73 +105,43 @@ export class Presence {
 
   stop() {
     clearInterval(this.timer);
-    this.room?.leave();
+    try { this.room?.leave(); } catch {}
     this.room = null;
-    this.state = null;
-    this.seen.clear();
+    this.peers.clear();
     this.status = 'off';
     this.count = null;
     this._emit();
   }
 
   setPlaying(on) {
-    this.localPlaying = on;
-    this.bc?.postMessage({ tab: this.tabId, playing: on });
-    this._publish();
-  }
-
-  _aggregate() {
-    const now = Date.now();
-    let on = this.localPlaying;
-    for (const [id, t] of this.tabs) {
-      if (now - t.at > TAB_STALE_MS) this.tabs.delete(id);
-      else if (t.playing) on = true;
-    }
-    return on;
-  }
-
-  _publish(force = false) {
-    if (!this.state) return;
-    const on = this._aggregate();
-    const due = !this.published || Date.now() - this.published.ts > HEARTBEAT_MS;
-    if (force || due || on !== this.published.on) {
-      this.published = { on, ts: Date.now() };
-      this.state.set(this.published).catch(() => {});
-    }
+    this.localPlaying = !!on;
+    this._publish(true);
     this._recount();
   }
 
-  _tick() {
-    // keep other tabs informed, refresh our heartbeat, check relay health
-    this.bc?.postMessage({ tab: this.tabId, playing: this.localPlaying });
-    this._publish();
-    let open = 0;
+  _publish(force = false) {
+    if (!this._send) return;
+    const now = Date.now();
+    if (!force && this._lastSend && now - this._lastSend < 1500) return;
+    this._lastSend = now;
     try {
-      for (const ws of Object.values(this.getRelaySockets?.() || {})) if (ws.readyState === 1) open++;
-    } catch { /* ignore */ }
-    const age = Date.now() - (this.startedAt ||= Date.now());
-    const status = open > 0 ? 'live' : age > 20_000 ? 'unavailable' : 'connecting';
-    if (status !== this.status) {
-      this.status = status;
-      this._recount();
+      this._send({ on: this.localPlaying, ts: now });
+    } catch (e) {
+      console.warn('presence send', e);
     }
   }
 
   _recount() {
-    if (!this.state) return;
     const now = Date.now();
-    const online = new Set(Object.keys(this.room.getUsers?.() || {}));
-    let count = 0;
-    for (const [id, v] of Object.entries(this.state.getAll())) {
-      if (!v || !v.on) continue;
-      const self = id === this.selfId;
-      if (self) { count++; continue; }
-      const seen = this.seen.get(id) || 0;
-      if (online.has(id) && now - seen < STALE_MS) count++;
+    let n = this.localPlaying ? 1 : 0;
+    for (const [id, p] of [...this.peers]) {
+      if (now - p.ts > STALE_MS) {
+        this.peers.delete(id);
+        continue;
+      }
+      if (p.on) n++;
     }
-    if (!this.selfId && this._aggregate()) count = Math.max(count, 1);
-    for (const [id, t] of this.seen) if (now - t > STALE_MS * 3) this.seen.delete(id);
-    this.count = this.status === 'unavailable' ? null : count;
+    this.count = this.status === 'unavailable' ? null : n;
     this._emit();
   }
 }

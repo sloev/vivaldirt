@@ -1,11 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
-  <rect x="-50" y="-50" width="100" height="100" rx="18" fill="#14161a"/>
-  <g fill="none" stroke-width="7.5" stroke-linecap="butt">
-    <path d="M2.8 -39.9 A40 40 0 0 1 39.9 -2.8" stroke="#8cc072"/>
-    <path d="M39.9 2.8 A40 40 0 0 1 2.8 39.9" stroke="#e8b64a"/>
-    <path d="M-2.8 39.9 A40 40 0 0 1 -39.9 2.8" stroke="#d2694a"/>
-    <path d="M-39.9 -2.8 A40 40 0 0 1 -2.8 -39.9" stroke="#86b2d8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Four Seasons in Real Time">
+  <rect width="512" height="512" fill="#eae9e3"/>
+  <rect x="48" y="48" width="416" height="416" fill="#2a2926"/>
+  <rect x="80" y="80" width="352" height="352" fill="#eae9e3"/>
+  <!-- abstract score / formwork bars -->
+  <g fill="#1a1a18" opacity="0.9">
+    <rect x="120" y="160" width="272" height="6"/>
+    <rect x="120" y="200" width="272" height="6"/>
+    <rect x="120" y="240" width="272" height="6"/>
+    <rect x="120" y="280" width="272" height="6"/>
+    <rect x="120" y="320" width="272" height="6"/>
   </g>
-  <line x1="0" y1="0" x2="-21.4" y2="22.7" stroke="#e9e6df" stroke-width="3.5" stroke-linecap="round"/>
-  <circle r="4.5" fill="#e9e6df"/>
+  <g fill="#0e0e0c">
+    <circle cx="168" cy="203" r="10"/>
+    <circle cx="248" cy="243" r="10"/>
+    <circle cx="320" cy="283" r="10"/>
+    <rect x="164" y="160" width="8" height="43"/>
+    <rect x="244" y="200" width="8" height="43"/>
+    <rect x="316" y="240" width="8" height="43"/>
+  </g>
 </svg>

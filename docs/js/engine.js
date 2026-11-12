@@ -3,14 +3,14 @@
 // AudioContext clock. No SharedArrayBuffer needed, so it runs on GitHub Pages
 // without cross-origin-isolation tricks.
 
-const AHEAD = 5; // seconds of stretched audio to keep scheduled
+const AHEAD = 5;
 const FFT = 32768;
-const MAKEUP = 2.5; // the recording is quiet (≈ −27 dBFS RMS); the compressor catches peaks
+const MAKEUP = 2.5;
 
 export class Engine {
   constructor({ manifest, playlist, base, onState }) {
     this.manifest = manifest;
-    this.playlist = playlist; // segment URIs, in order
+    this.playlist = playlist;
     this.base = base;
     this.onState = onState || (() => {});
     this.ctx = null;
@@ -45,8 +45,7 @@ export class Engine {
       this.ctx = new AC();
     }
     this.ratio = this.ctx.sampleRate / this.manifest.sampleRate;
-    // Let iOS keep playing with the ringer switch on silent / screen locked.
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* ignore */ }
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
 
     this.gain = this.ctx.createGain();
     this.gain.gain.value = 0;
@@ -79,7 +78,7 @@ export class Engine {
         break;
       case 'error':
         this.onState({ error: msg.message });
-        this._fail(new Error(msg.message));
+        this._fail?.(new Error(msg.message));
         break;
       case 'need':
         this._loadSegment(msg.index);
@@ -107,7 +106,6 @@ export class Engine {
       const audio = await this.ctx.decodeAudioData(buf);
       const L = audio.getChannelData(0);
       const R = audio.numberOfChannels > 1 ? audio.getChannelData(1) : L;
-      // keep a tiny main-thread cache so a seek nearby doesn't refetch
       this.decoded.set(index, [L, R]);
       if (this.decoded.size > 4) this.decoded.delete(this.decoded.keys().next().value);
       this.worker.postMessage({ type: 'segment', index, L: L.slice(), R: R.slice() });
@@ -131,53 +129,14 @@ export class Engine {
     g.setValueAtTime(g.value, now);
     g.linearRampToValueAtTime(0, now + 0.08);
     for (const s of this.sources) {
-      try { s.stop(now + 0.1); } catch { /* ignore */ }
+      try { s.stop(now + 0.1); } catch {}
     }
     this.sources.clear();
     this.nextTime = now + 0.15;
     g.setValueAtTime(0, this.nextTime);
     g.linearRampToValueAtTime(this.playing ? this.volume * MAKEUP : 0, this.nextTime + 1.5);
-    this.stretch = stretch;
     this.worker.postMessage({ type: 'seek', generation: this.generation, frame: frame * this.ratio, stretch });
     this._tick();
-  }
-
-  setStretch(stretch) {
-    if (this.worker && Math.abs(stretch - this.stretch) / stretch > 1e-4) {
-      this.stretch = stretch;
-      this.worker.postMessage({ type: 'stretch', stretch });
-    }
-  }
-
-  setVolume(v) {
-    this.volume = v;
-    if (this.ctx && this.playing) {
-      const now = this.ctx.currentTime;
-      this.gain.gain.cancelScheduledValues(now);
-      this.gain.gain.setTargetAtTime(v * MAKEUP, now, 0.05);
-    }
-  }
-
-  async pause() {
-    this.playing = false;
-    if (this.ctx) {
-      const now = this.ctx.currentTime;
-      this.gain.gain.cancelScheduledValues(now);
-      this.gain.gain.setTargetAtTime(0, now, 0.1);
-      setTimeout(() => { if (!this.playing) this.ctx.suspend(); }, 500);
-    }
-    this.onState({ playing: false });
-  }
-
-  _tick() {
-    if (!this.playing || !this.ctx) return;
-    const ahead = this.nextTime - this.ctx.currentTime;
-    const blockDur = this.blockFrames / this.ctx.sampleRate;
-    const want = Math.ceil((AHEAD - ahead) / blockDur) - this.outstanding;
-    if (want > 0) {
-      this.outstanding += want;
-      this.worker.postMessage({ type: 'pull', generation: this.generation, count: want });
-    }
   }
 
   _schedule(L, R) {
@@ -189,7 +148,7 @@ export class Engine {
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(this.gain);
-    if (this.nextTime < ctx.currentTime + 0.02) { // underrun
+    if (this.nextTime < ctx.currentTime + 0.02) {
       this.nextTime = ctx.currentTime + 0.05;
       this.onState({ underrun: true });
     }
@@ -198,5 +157,45 @@ export class Engine {
     this.sources.add(src);
     src.onended = () => this.sources.delete(src);
     this._tick();
+  }
+
+  _tick() {
+    if (!this.playing || !this.worker) return;
+    while (this.outstanding < 3 && this.nextTime < this.ctx.currentTime + AHEAD) {
+      this.outstanding++;
+      this.worker.postMessage({ type: 'request', generation: this.generation });
+    }
+  }
+
+  setVolume(v) {
+    this.volume = Math.max(0, Math.min(1, +v || 0));
+    if (this.ctx && this.playing) {
+      const g = this.gain.gain;
+      const now = this.ctx.currentTime;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(this.volume * MAKEUP, now + 0.05);
+    }
+  }
+
+  async pause() {
+    this.playing = false;
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (this.ctx && this.gain) {
+      const g = this.gain.gain;
+      const now = this.ctx.currentTime;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(0, now + 0.3);
+      setTimeout(() => { if (!this.playing) this.ctx.suspend(); }, 500);
+    }
+    this.onState({ playing: false });
+  }
+
+  destroy() {
+    this.pause();
+    if (this.worker) this.worker.terminate();
+    if (this.ctx) this.ctx.close().catch(() => {});
+    this.ctx = null;
   }
 }

@@ -1,16 +1,37 @@
 {
-  "name": "Vivaldi Real Time – The Four Seasons across the year",
-  "short_name": "Vivaldi RT",
-  "description": "Vivaldi's Four Seasons stretched with Paulstretch so each concerto lasts its whole three-month season, always playing at the present moment.",
-  "start_url": "./",
+  "name": "Four Seasons in Real Time",
+  "short_name": "Four Seasons",
+  "description": "Vivaldi's Four Seasons stretched across the whole year. A living artwork of architecture, notation and time.",
+  "start_url": "./?source=pwa",
   "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#eae9e3",
   "theme_color": "#eae9e3",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
