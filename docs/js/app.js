@@ -82,16 +82,17 @@ function update() {
     if ($('time')) $('time').textContent = clockFmt.format(t);
     if ($('date')) $('date').textContent = dateFmt.format(t).toUpperCase();
     if ($('where')) $('where').textContent = `${NAMES[pos.season]} — ${ROMAN[pos.movement - 1]}.`;
-    if ($('meta')) {
-      const st = engine?.playing ? 'LIVE' : '';
-      $('meta').textContent = `×${Math.round(stretchFactor(t))} ${st}`;
+    // Stretch factor only in About
+    const aboutStretch = $('about-stretch');
+    if (aboutStretch) {
+      aboutStretch.textContent = `Right now the stretch factor is about ×${Math.round(stretchFactor(t))}.`;
     }
-    if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
     art?.setMusic({
       fraction: pos.fraction,
       seasonIndex: SEASONS.indexOf(pos.season),
       seasonName: pos.season,
+      now: t,
     });
   } catch (err) {
     console.error(err);
@@ -124,11 +125,7 @@ async function main() {
   const canvas = $('art');
   if (canvas) art = new Art2D(canvas);
 
-  // Honest presence until peer backend is wired
-  const presence = $('presence');
-  const presenceText = $('presence-text');
-  if (presenceText) presenceText.textContent = '—';
-  if (presence) presence.title = 'Live listener count needs a presence backend';
+  if ($('presence-text')) $('presence-text').textContent = '—';
 
   let playlist = [];
   try {
@@ -147,8 +144,8 @@ async function main() {
     playlist,
     base: new URL('../audio/', BASE),
     onState: (s) => {
-      if (s.error && $('meta')) $('meta').textContent = s.error;
-      else if (s.loading && $('meta')) $('meta').textContent = 'Loading audio…';
+      // Keep stage clean — only log errors
+      if (s.error) console.warn(s.error);
     },
   });
 
@@ -188,7 +185,7 @@ async function main() {
         btn.setAttribute('aria-pressed', 'true');
         btn.textContent = 'Pause';
       } catch (err) {
-        if ($('meta')) $('meta').textContent = 'Audio failed: ' + (err.message || err);
+        console.error(err);
       }
     }
   });
@@ -201,7 +198,4 @@ async function main() {
   update();
 }
 
-main().catch((err) => {
-  console.error(err);
-  if ($('meta')) $('meta').textContent = 'Failed: ' + err.message;
-});
+main().catch((err) => console.error(err));
