@@ -133,6 +133,33 @@ function resyncAudio() {
   engine.seek(frameAt(t), stretchFactor(t));
 }
 
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // Auto-update: check periodically and activate waiting workers
+    const ping = () => reg.update().catch(() => {});
+    setInterval(ping, 60_000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') ping();
+    });
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          nw.postMessage('SKIP_WAITING');
+        }
+      });
+    });
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+  }).catch(() => {});
+}
+
 async function main() {
   const canvas = $('art');
   if (canvas) art = new Art2D(canvas);
@@ -204,12 +231,12 @@ async function main() {
     }
   });
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
+  registerSW();
 
   setInterval(update, 1000);
   update();
+  // Re-measure fade after first paint (fonts/layout)
+  requestAnimationFrame(() => art?._measureFade?.());
 }
 
 main().catch((err) => console.error(err));

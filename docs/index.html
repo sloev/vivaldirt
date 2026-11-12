@@ -6,36 +6,38 @@
   <title>Four Seasons in Real Time</title>
   <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year. The playhead is always at the present moment.">
   <meta name="theme-color" content="#eae9e3">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta http-equiv="Cache-Control" content="no-cache">
-  <link rel="manifest" href="manifest.webmanifest?v=14">
+  <link rel="manifest" href="manifest.webmanifest?v=15">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="css/style.css?v=14">
-  <link rel="modulepreload" href="js/app.js?v=14">
+  <meta name="apple-mobile-web-app-title" content="Four Seasons">
+  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="modulepreload" href="js/app.js?v=15">
 </head>
 <body>
   <canvas id="art" aria-hidden="true"></canvas>
 
   <header class="top">
+    <nav class="nav" aria-label="Main">
+      <button id="play" type="button" aria-pressed="false">Listen</button>
+      <button id="travel" type="button">Time travel</button>
+      <button id="about" type="button">About</button>
+    </nav>
     <span class="presence" id="presence"><i class="dot"></i> <span id="presence-text">—</span></span>
   </header>
 
   <main class="stage">
     <h1 class="title">FOUR SEASONS<br>IN REAL TIME</h1>
     <p class="kicker">ANTONIO VIVALDI · OP. 8</p>
-
     <section class="clock" aria-live="polite">
-      <div class="time" id="time">--:--:--</div>
-      <div class="date" id="date"></div>
-      <div class="where" id="where"></div>
+      <span class="time" id="time">--:--:--</span>
+      <span class="sep" aria-hidden="true"> · </span>
+      <span class="date" id="date"></span>
+      <span class="sep" aria-hidden="true"> · </span>
+      <span class="where" id="where"></span>
     </section>
-
-    <nav class="nav">
-      <button id="play" type="button" aria-pressed="false">Listen</button>
-      <button id="travel" type="button">Time travel</button>
-      <button id="about" type="button">About</button>
-    </nav>
   </main>
 
   <aside class="sheet" id="sheet-travel" hidden>
@@ -88,6 +90,6 @@
     </div>
   </aside>
 
-  <script type="module" src="js/app.js?v=14"></script>
+  <script type="module" src="js/app.js?v=15"></script>
 </body>
 </html>

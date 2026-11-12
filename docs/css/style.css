@@ -32,6 +32,7 @@
   --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   --gutter: clamp(20px, 4vw, 48px);
+  --line: 1.45;
   color-scheme: light;
 }
 
@@ -40,7 +41,7 @@ html, body { margin: 0; height: 100%; }
 body {
   background: var(--paper);
   color: var(--ink);
-  font: 15px/1.45 var(--sans);
+  font: 15px/var(--line) var(--sans);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -57,12 +58,30 @@ body {
   position: fixed; z-index: 2;
   left: var(--gutter); right: var(--gutter);
   top: max(env(safe-area-inset-top), 16px);
-  display: flex; justify-content: flex-end; align-items: baseline;
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 16px;
   font-family: var(--mono);
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ink);
 }
-.presence { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.nav {
+  display: flex; gap: 22px;
+  pointer-events: auto;
+}
+.nav button {
+  background: none; border: 0; padding: 4px 0;
+  font: inherit; font-size: 12px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink);
+  cursor: pointer; border-bottom: 1px solid transparent;
+}
+.nav button:hover, .nav button[aria-pressed="true"] { border-bottom-color: currentColor; }
+
+.presence {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+  flex-shrink: 0;
+}
 .presence .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .presence.live .dot { background: var(--red); }
 
@@ -75,9 +94,8 @@ body {
 }
 .stage button { pointer-events: auto; }
 
-/* Bodoni only on the main title */
 .title {
-  margin: clamp(72px, 14vh, 140px) 0 0;
+  margin: clamp(64px, 12vh, 120px) 0 0;
   font-family: var(--display);
   font-weight: 700;
   font-size: clamp(40px, 6.8vw, 96px);
@@ -98,47 +116,24 @@ body {
 }
 
 .clock {
-  margin-top: auto;
-  margin-bottom: 88px;
-  max-width: 30ch;
-}
-.time {
-  font-family: var(--mono);
-  font-weight: 400;
-  font-size: clamp(28px, 4.2vw, 48px);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-  color: var(--ink);
-}
-.date {
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--ink);
-  font-family: var(--mono);
-  letter-spacing: 0.04em;
-  opacity: 0.9;
-}
-.where {
   margin-top: 10px;
-  font-size: 15px;
-  font-weight: 500;
-  font-family: var(--sans);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
   color: var(--ink);
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
 }
-
-.nav {
-  position: fixed; z-index: 2;
-  left: var(--gutter);
-  bottom: max(env(safe-area-inset-bottom), 18px);
-  display: flex; gap: 28px;
+.clock .time,
+.clock .date,
+.clock .where {
+  font-size: inherit;
+  font-family: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  font-weight: 400;
 }
-.nav button {
-  background: none; border: 0; padding: 6px 0;
-  font: inherit; font-size: 14px; color: var(--ink);
-  cursor: pointer; border-bottom: 1px solid transparent;
-}
-.nav button:hover, .nav button[aria-pressed="true"] { border-bottom-color: currentColor; }
+.clock .sep { opacity: 0.45; }
 
 .sheet {
   position: fixed; inset: 0; z-index: 30;
@@ -194,5 +189,6 @@ body {
 
 @media (max-width: 700px) {
   .title { font-size: clamp(32px, 10vw, 52px); }
-  .nav { gap: 18px; }
+  .nav { gap: 14px; }
+  .clock { font-size: 11px; }
 }

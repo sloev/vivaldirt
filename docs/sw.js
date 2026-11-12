@@ -1,19 +1,25 @@
-const VERSION = 'v4';
+// Network-first shell + aggressive update so the installed PWA stays current.
+const VERSION = 'v14';
 const SHELL = `shell-${VERSION}`;
-const MEDIA = 'media-v1';
-const MEDIA_MAX = 24;
-const SHELL_FILES = [
-  './', 'index.html',
-  'css/style.css?v=4', 'css/style.css',
-  'js/app.js?v=4', 'js/app.js',
-  'js/seasons.js', 'js/engine.js', 'js/stretch-worker.js',
-  'manifest.webmanifest'
-];
+const MEDIA = 'media-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(SHELL)
-      .then((c) => c.addAll(SHELL_FILES.map((f) => new Request(f, { cache: 'reload' }))))
+      .then((c) => c.addAll([
+        './',
+        'index.html',
+        'manifest.webmanifest',
+        'css/style.css',
+        'js/app.js',
+        'js/art2d.js',
+        'js/weeks.js',
+        'js/seasons.js',
+        'js/engine.js',
+        'js/presence.js',
+        'js/stretch-worker.js',
+        'icons/icon.svg',
+      ].map((f) => new Request(f, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
       .catch((err) => console.warn('SW install', err))
   );
@@ -28,11 +34,16 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
+// Let the page force an update cycle
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
-  const media = /\/(audio\/seg|score)\/[^/]+\.(flac|png)$/.test(url.pathname);
+  const media = /\/(audio\/seg|score|images)\//.test(url.pathname);
   if (media) {
     e.respondWith((async () => {
       const cache = await caches.open(MEDIA);
@@ -49,7 +60,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Network-first for shell so Android sees updates
+  // Always try network first for app shell so updates land without hard refresh
   e.respondWith((async () => {
     try {
       const res = await fetch(e.request, { cache: 'no-store' });
