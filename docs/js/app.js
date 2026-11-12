@@ -1,5 +1,6 @@
-import { positionAt } from './seasons.js';
+import { positionAt, SEASONS } from './seasons.js';
 import { Engine } from './engine.js';
+import { Art2D } from './art2d.js';
 
 const $ = (id) => document.getElementById(id);
 const BASE = new URL('.', import.meta.url);
@@ -62,6 +63,7 @@ function stretchFactor(t) {
 }
 
 let engine;
+let art;
 let lastSeason = '';
 
 function updateWash(season) {
@@ -85,6 +87,10 @@ function update() {
     if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
     updateWash(pos.season);
+    art?.setMusic({
+      fraction: pos.fraction,
+      seasonIndex: SEASONS.indexOf(pos.season),
+    });
   } catch (err) {
     console.error(err);
   }
@@ -120,6 +126,9 @@ function resyncAudio() {
 }
 
 async function main() {
+  const canvas = $('art');
+  if (canvas) art = new Art2D(canvas);
+
   let playlist = [];
   try {
     const [manifest, scoreMap, pl] = await Promise.all([
