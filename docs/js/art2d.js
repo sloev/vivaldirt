@@ -273,10 +273,13 @@ export class Art2D {
 
     for (const layer of layers) this._getPlate(layer.index);
 
+    // the top plate drifts very slowly: a few percent of the screen over
+    // a quarter of an hour, back and forth
+    const ts = Date.now() / 1000;
     const offsets = [
       { x: -W * 0.02, y: -H * 0.015 },
       { x: 0, y: 0 },
-      { x: W * 0.02, y: H * 0.015 },
+      { x: W * 0.02 + W * 0.03 * Math.sin((2 * Math.PI * ts) / 900), y: H * 0.015 + H * 0.015 * Math.sin((2 * Math.PI * ts) / 1300) },
     ];
 
     layers.forEach((layer, i) => {
@@ -306,11 +309,11 @@ export class Art2D {
     grd.addColorStop(1, 'rgba(18,16,12,0.22)');
     octx.fillStyle = grd;
     octx.fillRect(0, 0, W, H);
-    // levels: screen with 70 % grey maps every value v to 0.7 + 0.3·v, so
-    // nothing in the artwork is darker than 70 % grey
+    // levels: screen with grey 60 maps every value v to 60 + v·(195/255),
+    // so the darkest the artwork gets is 60 / 255
     octx.save();
     octx.globalCompositeOperation = 'screen';
-    octx.fillStyle = 'rgb(179,179,179)';
+    octx.fillStyle = 'rgb(60,60,60)';
     octx.fillRect(0, 0, W, H);
     octx.restore();
 
