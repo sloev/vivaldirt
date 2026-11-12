@@ -53,7 +53,6 @@ export class Art2D {
     if (this.cache.has(week)) return this.cache.get(week);
     const src = plateForWeek(week);
     if (!src) return null;
-    // Same URL may map to same image — share decoded Image objects by src
     if (!this._bySrc) this._bySrc = new Map();
     if (this._bySrc.has(src)) {
       const im = this._bySrc.get(src);
@@ -79,7 +78,7 @@ export class Art2D {
       const url = new URL(`../score/${name}-01.png`, import.meta.url).href;
       const im = await loadImage(url);
       const c = document.createElement('canvas');
-      const w = 400;
+      const w = 480;
       const h = Math.round((im.height / im.width) * w);
       c.width = w; c.height = h;
       const g = c.getContext('2d');
@@ -113,14 +112,60 @@ export class Art2D {
     ctx.globalAlpha = 1;
   }
 
-  /** Score as stained grit: only current band, soft, multiply into concrete. */
+  /** Lift shadows so nothing sits below ~70/255, keep highlights. */
+  _liftShadows() {
+    const ctx = this.ctx;
+    const W = this.canvas.width, H = this.canvas.height;
+    // Screen-blend a mid grey so pure black rises toward ~70
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.42;
+    ctx.fillStyle = '#464646'; // ~70
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    // Slight overall lift
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = '#c8c4bc';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  /** Heavy film grain. */
+  _drawGrain(now) {
+    const ctx = this.ctx;
+    const W = this.canvas.width, H = this.canvas.height;
+    const dpr = this.dpr || 1;
+    const n = Math.floor((W * H) / 900);
+    ctx.save();
+    ctx.globalAlpha = 0.14;
+    for (let i = 0; i < n; i++) {
+      const x = (Math.sin(i * 19.7 + now * 0.00005) * 0.5 + 0.5) * W;
+      const y = (Math.cos(i * 13.3 + i * 0.17) * 0.5 + 0.5) * H;
+      const g = (i * 37) % 2 === 0 ? 0 : 255;
+      ctx.fillStyle = g ? '#fff' : '#000';
+      ctx.fillRect(x, y, dpr, dpr);
+    }
+    // Second pass coarser
+    ctx.globalAlpha = 0.08;
+    for (let i = 0; i < n / 3; i++) {
+      const x = (Math.sin(i * 7.1 + 3) * 0.5 + 0.5) * W;
+      const y = (Math.cos(i * 11.9 + now * 0.00002) * 0.5 + 0.5) * H;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, y, dpr * 2, dpr * 2);
+    }
+    ctx.restore();
+  }
+
+  /** Score as visible stained notation — current band stronger. */
   _drawScoreAmbient() {
     if (!this.scoreData) return;
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
     const sw = this.scoreW, sh = this.scoreH;
 
-    const band = 0.2;
+    const band = 0.28;
     const center = this.frac * (1 - band) + band * 0.5;
     const y0 = center - band / 2;
     const y1 = center + band / 2;
@@ -136,41 +181,47 @@ export class Art2D {
     for (let y = 0; y < sh; y++) {
       const v = y / sh;
       let m = 1;
-      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.2);
-      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.2);
-      m = m * m * (0.3 + 0.7 * m);
+      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.22);
+      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.22);
+      m = m * m;
 
       for (let x = 0; x < sw; x++) {
         const i = (y * sw + x) * 4;
         const lum = src[i] / 255;
-        const ink = lum < 0.7 ? (0.7 - lum) / 0.7 : 0;
-        const grit = ink * ink;
+        // Keep more of the notation — softer threshold
+        const ink = lum < 0.82 ? (0.82 - lum) / 0.82 : 0;
+        const grit = Math.pow(ink, 1.15);
         const edgeX = Math.min(x / sw, 1 - x / sw);
-        const hx = Math.min(1, edgeX * 3.5);
-        const a = Math.round(grit * m * hx * 145);
-        d[i] = 10; d[i + 1] = 10; d[i + 2] = 9; d[i + 3] = a;
+        const hx = Math.min(1, edgeX * 5);
+        // Stronger alpha so it reads on lightened concrete
+        const a = Math.round(grit * m * hx * 210);
+        d[i] = 8; d[i + 1] = 8; d[i + 2] = 6; d[i + 3] = a;
       }
     }
     g.putImageData(id, 0, 0);
 
-    const dw = W * 0.75;
+    const dw = W * 0.82;
     const dh = dw * (sh / sw);
-    const dx = -W * 0.05;
-    const dy = H * 0.06;
+    const dx = -W * 0.02;
+    const dy = H * 0.04;
 
     ctx.save();
+    // Multiply for ink-into-paper feel
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.72;
     ctx.drawImage(off, dx, dy, dw, dh);
-    ctx.globalAlpha = 0.18;
-    ctx.drawImage(off, dx + W * 0.012, dy + H * 0.01, dw, dh);
+    // Soft double impression
+    ctx.globalAlpha = 0.28;
+    ctx.drawImage(off, dx + W * 0.008, dy + H * 0.006, dw, dh);
     ctx.restore();
 
-    const grd = ctx.createRadialGradient(W * 0.45, H * 0.5, H * 0.12, W * 0.5, H * 0.5, H * 0.9);
-    grd.addColorStop(0, 'rgba(0,0,0,0)');
-    grd.addColorStop(1, 'rgba(0,0,0,0.28)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, W, H);
+    // Slight darken where score sits so notes stay readable after shadow lift
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#1a1814';
+    ctx.fillRect(dx, dy, dw * 0.95, dh);
+    ctx.restore();
   }
 
   _loop(now) {
@@ -184,7 +235,7 @@ export class Art2D {
   _draw(now) {
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
-    ctx.fillStyle = '#121210';
+    ctx.fillStyle = '#3a3834';
     ctx.fillRect(0, 0, W, H);
 
     const date = new Date(this.musicNow || Date.now());
@@ -196,20 +247,16 @@ export class Art2D {
     const b = this.cache.get(w1);
     if (a) this._coverDraw(a, 1 - blend);
     if (b) this._coverDraw(b, blend);
-    if (!a && !b) {
-      ctx.fillStyle = '#2a2926';
-      ctx.fillRect(0, 0, W, H);
-    }
 
+    this._liftShadows();
     this._drawScoreAmbient();
+    this._drawGrain(now);
 
-    ctx.globalAlpha = 0.045;
-    ctx.fillStyle = '#000';
-    for (let i = 0; i < 450; i++) {
-      const x = (Math.sin(i * 19.7 + now * 0.00007) * 0.5 + 0.5) * W;
-      const y = (Math.cos(i * 13.3 + 2) * 0.5 + 0.5) * H;
-      ctx.fillRect(x, y, this.dpr || 1, this.dpr || 1);
-    }
-    ctx.globalAlpha = 1;
+    // Soft vignette for depth, not pure black
+    const grd = ctx.createRadialGradient(W * 0.5, H * 0.5, H * 0.2, W * 0.5, H * 0.5, H * 0.95);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(1, 'rgba(20,18,14,0.22)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
   }
 }

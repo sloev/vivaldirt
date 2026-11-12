@@ -24,10 +24,10 @@
 :root {
   --paper: #eae9e3;
   --concrete: #c7c6bf;
-  --mid: #777873;
-  --charcoal: #252522;
-  --ink: #171715;
-  --red: #8e3b32;
+  --mid: #2a2a28;
+  --charcoal: #1a1a18;
+  --ink: #0e0e0c;
+  --red: #6b2a24;
   --display: "Vivaldirt Bodoni Condensed", "Libre Bodoni", "Bodoni 72 Condensed", "Bodoni MT Condensed", "Times New Roman", Times, serif;
   --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -50,7 +50,7 @@ body {
   width: 100vw; height: 100vh; height: 100dvh;
   display: block;
   z-index: 0;
-  background: var(--paper);
+  background: #3a3834;
 }
 
 .top {
@@ -60,9 +60,9 @@ body {
   display: flex; justify-content: space-between; align-items: baseline;
   font-family: var(--mono);
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--mid);
+  color: var(--ink);
 }
-.presence { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.presence { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .presence .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .presence.live .dot { background: var(--red); }
 
@@ -83,6 +83,8 @@ body {
   line-height: 0.9;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.12), 0 0 24px rgba(234,233,227,0.35);
 }
 .kicker {
   margin: 14px 0 0;
@@ -90,7 +92,8 @@ body {
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--mid);
+  color: var(--ink);
+  opacity: 0.85;
 }
 
 .clock {
@@ -105,9 +108,23 @@ body {
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.1), 0 0 20px rgba(234,233,227,0.3);
 }
-.date { margin-top: 6px; font-size: 14px; color: var(--mid); font-family: var(--mono); letter-spacing: 0.04em; }
-.where { margin-top: 10px; font-size: 15px; font-weight: 500; }
+.date {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--ink);
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  opacity: 0.9;
+}
+.where {
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
 
 .nav {
   position: fixed; z-index: 2;
@@ -136,31 +153,32 @@ body {
   border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
   font-size: 14px;
   z-index: 1;
+  color: var(--ink);
 }
-.sheet header button { background: none; border: 0; cursor: pointer; font: inherit; }
-.sheet .body { padding: 24px var(--gutter) 48px; max-width: 560px; }
+.sheet header button { background: none; border: 0; cursor: pointer; font: inherit; color: var(--ink); }
+.sheet .body { padding: 24px var(--gutter) 48px; max-width: 560px; color: var(--ink); }
 .about-body h2 {
   margin: 28px 0 8px;
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--mid);
+  color: var(--charcoal);
   font-family: var(--mono);
   font-weight: 500;
 }
 .about-body h2:first-child { margin-top: 0; }
 .about-body a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
-.sheet label { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; font-size: 14px; }
+.sheet label { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; font-size: 14px; color: var(--ink); }
 .sheet input, .sheet select {
   background: #f3efe6; border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
-  border-radius: 4px; padding: 8px 10px; font: inherit;
+  border-radius: 4px; padding: 8px 10px; font: inherit; color: var(--ink);
 }
 .row { display: flex; gap: 10px; margin-top: 12px; }
 .row button {
   background: var(--ink); color: var(--paper); border: 0;
   padding: 10px 16px; border-radius: 4px; cursor: pointer; font: inherit;
 }
-.small { font-size: 13px; color: var(--mid); }
+.small { font-size: 13px; color: var(--charcoal); }
 
 @media (max-width: 700px) {
   .title { font-size: clamp(36px, 11vw, 56px); }
