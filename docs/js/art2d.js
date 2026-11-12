@@ -47,8 +47,10 @@ export function yearComposite3(date = new Date()) {
 // --- the top plate's slow wander ------------------------------------------
 // A chain of waypoints: drift to a spot, zoom in a little around it, ease
 // back out and wander to the next. Each leg lasts exactly as long as it takes
-// the fastest-moving point on screen to travel at 1 CSS px per 5 seconds.
-const WANDER_SPEED = 0.2; // CSS px per second
+// the fastest-moving point on screen to travel at most 1 CSS px per second.
+// average speed; legs are eased (smoothstep peaks at 1.5× the average), so
+// the fastest point on screen never moves more than 1 CSS px per second
+const WANDER_SPEED = 1 / 1.5; // CSS px per second
 const WANDER_EPOCH = Date.UTC(2026, 0, 1);
 
 function wanderKey(k) {
