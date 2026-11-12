@@ -83,7 +83,7 @@ export class Art2D {
     } else {
       this.fadeStartY = 0.3;
     }
-    this.fadeEndY = this.fadeStartY + (3 * line) / vh;
+    this.fadeEndY = this.fadeStartY + (8 * line) / vh;
   }
 
   async _getPlate(index) {
@@ -161,7 +161,8 @@ export class Art2D {
     for (let i = 0; i < n; i++) {
       const x = (Math.sin(i * 19.7 + now * 0.00005) * 0.5 + 0.5) * W;
       const y = (Math.cos(i * 13.3 + i * 0.17) * 0.5 + 0.5) * H;
-      ctx.fillStyle = (i * 37) % 2 === 0 ? '#000' : '#fff';
+      if ((i * 37) % 2 !== 0) continue; // dark specks only (no white dots)
+      ctx.fillStyle = '#000';
       ctx.fillRect(x, y, dpr, dpr);
     }
     ctx.restore();
@@ -238,9 +239,9 @@ export class Art2D {
 
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.38;
+    ctx.globalAlpha = 0.48;
     ctx.drawImage(off, dx, dy, dw, dh);
-    ctx.globalAlpha = 0.12;
+    ctx.globalAlpha = 0.15;
     ctx.drawImage(off, dx + W * 0.005, dy + H * 0.004, dw, dh);
     ctx.restore();
   }
@@ -322,17 +323,17 @@ export class Art2D {
     const y2 = Math.min(H, this.fadeEndY * H);
 
     // One continuous gradient instead of strips: the artwork at full
-    // strength, then paper laid over it, fading from 80 % (art shows at 20 %)
-    // above the clock to 0 % three lines below it. (Drawing the art in 64
+    // strength, then paper laid over it, fading from 70 % (art shows at 30 %)
+    // above the clock to 0 % eight lines below it. (Drawing the art in 64
     // overlapping strips made every 1-px overlap darker: visible stripes.)
     ctx.drawImage(off, 0, 0);
     const fade = ctx.createLinearGradient(0, y1, 0, Math.max(y1 + 1, y2));
     const steps = 12;
     for (let i = 0; i <= steps; i++) {
       const u = i / steps;
-      fade.addColorStop(u, `rgba(234,233,227,${(0.8 * (1 - easeInOut(u))).toFixed(4)})`);
+      fade.addColorStop(u, `rgba(234,233,227,${(0.7 * (1 - easeInOut(u))).toFixed(4)})`);
     }
-    ctx.fillStyle = 'rgba(234,233,227,0.8)';
+    ctx.fillStyle = 'rgba(234,233,227,0.7)';
     ctx.fillRect(0, 0, W, y1);
     ctx.fillStyle = fade;
     ctx.fillRect(0, y1, W, Math.max(1, y2 - y1));
