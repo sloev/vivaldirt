@@ -53,8 +53,6 @@ body {
   background: var(--paper);
 }
 
-.score-wash { display: none; }
-
 .top {
   position: fixed; z-index: 2;
   left: var(--gutter); right: var(--gutter);
@@ -110,7 +108,6 @@ body {
 }
 .date { margin-top: 6px; font-size: 14px; color: var(--mid); font-family: var(--mono); letter-spacing: 0.04em; }
 .where { margin-top: 10px; font-size: 15px; font-weight: 500; }
-.meta { margin-top: 4px; font-size: 12px; color: var(--mid); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 .nav {
   position: fixed; z-index: 2;
@@ -124,26 +121,6 @@ body {
   cursor: pointer; border-bottom: 1px solid transparent;
 }
 .nav button:hover, .nav button[aria-pressed="true"] { border-bottom-color: currentColor; }
-
-.season-label {
-  position: fixed; z-index: 2;
-  right: var(--gutter);
-  bottom: max(env(safe-area-inset-bottom), 22px);
-  font-family: var(--mono);
-  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--concrete);
-}
-
-.build {
-  position: fixed; z-index: 2;
-  left: var(--gutter);
-  bottom: max(env(safe-area-inset-bottom), 52px);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--mid);
-  opacity: 0.7;
-}
 
 .sheet {
   position: fixed; inset: 0; z-index: 30;
