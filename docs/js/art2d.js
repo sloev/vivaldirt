@@ -155,15 +155,44 @@ export class Art2D {
   _drawGrain(ctx, now) {
     const W = this.canvas.width, H = this.canvas.height;
     const dpr = this.dpr || 1;
-    const n = Math.floor((W * H) / 850);
+    const n = Math.floor((W * H) / 300);
     ctx.save();
-    ctx.globalAlpha = 0.16;
+    ctx.globalAlpha = 0.45;
     for (let i = 0; i < n; i++) {
       const x = (Math.sin(i * 19.7 + now * 0.00005) * 0.5 + 0.5) * W;
       const y = (Math.cos(i * 13.3 + i * 0.17) * 0.5 + 0.5) * H;
       ctx.fillStyle = (i * 37) % 2 === 0 ? '#000' : '#fff';
       ctx.fillRect(x, y, dpr, dpr);
     }
+    ctx.restore();
+  }
+
+  /** Static grit: a tile of speckle and dust multiplied over everything. */
+  _drawGrit(ctx) {
+    if (!this._gritTile) {
+      const T = 256;
+      const c = document.createElement('canvas');
+      c.width = T; c.height = T;
+      const g = c.getContext('2d');
+      const id = g.createImageData(T, T);
+      let seed = 12345;
+      const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+      for (let i = 0; i < T * T; i++) {
+        const r = rnd();
+        // mostly paper, a fine tooth of grey, rare dark specks
+        const v = r < 0.012 ? 40 + rnd() * 60 : r < 0.08 ? 150 + rnd() * 60 : 215 + rnd() * 40;
+        id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v;
+        id.data[i * 4 + 3] = 255;
+      }
+      g.putImageData(id, 0, 0);
+      this._gritTile = c;
+    }
+    const W = this.canvas.width, H = this.canvas.height;
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = ctx.createPattern(this._gritTile, 'repeat');
+    ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 
@@ -209,9 +238,9 @@ export class Art2D {
 
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.78;
+    ctx.globalAlpha = 0.38;
     ctx.drawImage(off, dx, dy, dw, dh);
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.12;
     ctx.drawImage(off, dx + W * 0.005, dy + H * 0.004, dw, dh);
     ctx.restore();
   }
@@ -236,7 +265,7 @@ export class Art2D {
     off.width = W;
     off.height = H;
     const octx = off.getContext('2d');
-    octx.fillStyle = '#2e2c28';
+    octx.fillStyle = '#eae9e3';
     octx.fillRect(0, 0, W, H);
 
     const date = new Date(this.musicNow || Date.now());
@@ -254,7 +283,12 @@ export class Art2D {
       const im = this.cache.get(layer.index);
       if (!im) return;
       const o = offsets[i] || { x: 0, y: 0 };
-      this._coverDraw(octx, im, layer.alpha, o.x, o.y);
+      // multiply: each plate's grain and stains darken the ones beneath
+      octx.save();
+      octx.globalCompositeOperation = 'multiply';
+      octx.filter = 'grayscale(1) contrast(1.6)';
+      this._coverDraw(octx, im, Math.max(0.55, layer.alpha), o.x, o.y);
+      octx.restore();
     });
 
     if (layers.every((l) => !this.cache.get(l.index))) {
@@ -263,15 +297,22 @@ export class Art2D {
       }
     }
 
-    this._liftShadows(octx);
     this._drawScoreFullscreen(octx);
     this._drawGrain(octx, now);
+    this._drawGrit(octx);
 
     const grd = octx.createRadialGradient(W * 0.5, H * 0.5, H * 0.15, W * 0.5, H * 0.5, H * 0.95);
     grd.addColorStop(0, 'rgba(0,0,0,0)');
     grd.addColorStop(1, 'rgba(18,16,12,0.22)');
     octx.fillStyle = grd;
     octx.fillRect(0, 0, W, H);
+    // levels: screen with 70 % grey maps every value v to 0.7 + 0.3·v, so
+    // nothing in the artwork is darker than 70 % grey
+    octx.save();
+    octx.globalCompositeOperation = 'screen';
+    octx.fillStyle = 'rgb(179,179,179)';
+    octx.fillRect(0, 0, W, H);
+    octx.restore();
 
     this._measureFade();
     const y1 = this.fadeStartY * H;
