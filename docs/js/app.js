@@ -12,11 +12,9 @@ const ROMAN = ['I', 'II', 'III'];
 function guessHemisphere() {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    // Southern hemisphere zones (rough but practical)
     if (/Australia|Pacific\/Auckland|Pacific\/Fiji|Africa\/Johannesburg|America\/Sao_Paulo|America\/Argentina|America\/Santiago|Antarctica|Indian\/Mauritius/.test(tz)) {
       return 'south';
     }
-    // Latitude from locale is not available; use language region heuristics
     const loc = (navigator.language || '').toLowerCase();
     if (loc.endsWith('-au') || loc.endsWith('-nz') || loc.endsWith('-za') || loc.endsWith('-ar') || loc.endsWith('-cl') || loc.endsWith('-br')) {
       return 'south';
@@ -28,7 +26,6 @@ function guessHemisphere() {
 const state = {
   offset: 0,
   hemisphere: localStorage.getItem('hemisphere') || guessHemisphere(),
-  scoreMap: null,
   manifest: null,
   openSheet: null,
 };
@@ -62,8 +59,7 @@ function frameAt(t) {
     (x) => x.season === pos.season && x.movement === pos.movement
   ) || m.movements.find((x) => x.season === pos.season);
   if (!mv) return 0;
-  const len = mv.end - mv.start;
-  return Math.floor(mv.start + (pos.movementFrac || 0) * len);
+  return Math.floor(mv.start + (pos.movementFrac || 0) * (mv.end - mv.start));
 }
 
 function stretchFactor(t) {
@@ -71,23 +67,13 @@ function stretchFactor(t) {
   const seasonMs = pos.seasonEnd - pos.seasonStart;
   const m = state.manifest;
   if (!m || !m.movements) return 12500;
-  const moves = m.movements.filter((x) => x.season === pos.season);
-  const frames = moves.reduce((s, x) => s + (x.end - x.start), 0);
+  const frames = m.movements.filter((x) => x.season === pos.season).reduce((s, x) => s + (x.end - x.start), 0);
   const sr = m.sampleRate || 48000;
-  const recMs = (frames / sr) * 1000;
-  return Math.max(100, seasonMs / recMs);
+  return Math.max(100, seasonMs / ((frames / sr) * 1000));
 }
 
 let engine;
 let art;
-let lastSeason = '';
-
-function updateWash(season) {
-  const el = $('score-wash');
-  if (!el || season === lastSeason) return;
-  lastSeason = season;
-  el.style.backgroundImage = `url(${new URL(`../score/${season}-01.png`, BASE).href})`;
-}
 
 function update() {
   try {
@@ -102,10 +88,10 @@ function update() {
     }
     if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
-    updateWash(pos.season);
     art?.setMusic({
       fraction: pos.fraction,
       seasonIndex: SEASONS.indexOf(pos.season),
+      seasonName: pos.season,
     });
   } catch (err) {
     console.error(err);
@@ -118,19 +104,14 @@ function openSheet(id) {
   if (!el) return;
   el.hidden = false;
   state.openSheet = id;
-  // Push history so Android/browser back closes the sheet
-  if (!history.state || history.state.sheet !== id) {
-    history.pushState({ sheet: id }, '');
-  }
+  if (!history.state || history.state.sheet !== id) history.pushState({ sheet: id }, '');
 }
 
 function closeSheets(fromPop) {
   document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
   const had = state.openSheet;
   state.openSheet = null;
-  if (had && !fromPop && history.state?.sheet) {
-    history.back();
-  }
+  if (had && !fromPop && history.state?.sheet) history.back();
 }
 
 function resyncAudio() {
@@ -143,6 +124,12 @@ async function main() {
   const canvas = $('art');
   if (canvas) art = new Art2D(canvas);
 
+  // Honest presence until peer backend is wired
+  const presence = $('presence');
+  const presenceText = $('presence-text');
+  if (presenceText) presenceText.textContent = '—';
+  if (presence) presence.title = 'Live listener count needs a presence backend';
+
   let playlist = [];
   try {
     const [manifest, pl] = await Promise.all([
@@ -153,7 +140,6 @@ async function main() {
     playlist = pl;
   } catch (err) {
     console.warn('data load', err);
-    if ($('meta')) $('meta').textContent = 'Data load failed';
   }
 
   engine = new Engine({
@@ -169,31 +155,23 @@ async function main() {
   $('travel')?.addEventListener('click', () => openSheet('sheet-travel'));
   $('about')?.addEventListener('click', () => openSheet('sheet-about'));
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeSheets(false)));
-
-  addEventListener('popstate', () => {
-    if (state.openSheet) closeSheets(true);
-  });
+  addEventListener('popstate', () => { if (state.openSheet) closeSheets(true); });
 
   $('go')?.addEventListener('click', () => {
     const v = $('when')?.value;
     if (!v) return;
     state.offset = new Date(v).getTime() - Date.now();
-    update();
-    resyncAudio();
-    closeSheets(false);
+    update(); resyncAudio(); closeSheets(false);
   });
   $('now')?.addEventListener('click', () => {
     state.offset = 0;
     if ($('when')) $('when').value = '';
-    update();
-    resyncAudio();
-    closeSheets(false);
+    update(); resyncAudio(); closeSheets(false);
   });
   $('hemisphere')?.addEventListener('change', (e) => {
     state.hemisphere = e.target.value;
     try { localStorage.setItem('hemisphere', state.hemisphere); } catch {}
-    update();
-    resyncAudio();
+    update(); resyncAudio();
   });
   if ($('hemisphere')) $('hemisphere').value = state.hemisphere;
 
@@ -210,7 +188,6 @@ async function main() {
         btn.setAttribute('aria-pressed', 'true');
         btn.textContent = 'Pause';
       } catch (err) {
-        console.error(err);
         if ($('meta')) $('meta').textContent = 'Audio failed: ' + (err.message || err);
       }
     }
