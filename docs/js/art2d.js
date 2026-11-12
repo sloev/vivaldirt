@@ -184,10 +184,9 @@ export class Art2D {
     this.setScoreSeason(seasonName);
   }
 
-  /** Where the wander is now: an interpolated waypoint (CSS-px timing). */
-  _wander(nowMs) {
+  /** Where the wander is at wander-time t (s): an interpolated waypoint. */
+  _wander(t) {
     const W = innerWidth, H = innerHeight;
-    const t = (nowMs - WANDER_EPOCH) / 1000;
     if (!this._wk || this._wW !== W || this._wH !== H || t < this._wStart) {
       // find the current leg from the epoch (once, or after a resize)
       this._wW = W; this._wH = H;
@@ -357,12 +356,25 @@ export class Art2D {
     // composite them every few seconds, or at once when something changed.
     // Only the wandering plate moves, so each frame is just three cheap draws,
     // 25 times a second, for a smooth sub-pixel glide.
+    //
+    // The wander has its own clock, which only runs while the window has
+    // focus: it pauses when you leave and continues from the same spot when
+    // you come back.
+    const focused = !document.hidden && document.hasFocus();
+    const dt = this._prevNow ? Math.min(0.25, (now - this._prevNow) / 1000) : 0;
+    this._prevNow = now;
+    if (this._wClock == null) this._wClock = (Date.now() - WANDER_EPOCH) / 1000;
+    if (focused) this._wClock += dt;
+
+    let rebuilt = false;
     if (this._dirty || !this._staticAt || now - this._staticAt > 5000) {
       this._dirty = false;
       this._staticAt = now;
       this._buildStatic();
+      rebuilt = true;
     }
-    if (!this._last || now - this._last >= 40) {
+    // while unfocused nothing moves, so only redraw when the still layers did
+    if ((focused || rebuilt) && (!this._last || now - this._last >= 40 || rebuilt)) {
       this._last = now;
       this._draw();
     }
@@ -470,7 +482,7 @@ export class Art2D {
     if (im) {
       ctx.save();
       ctx.globalCompositeOperation = 'multiply';
-      this._coverDraw(ctx, im, Math.max(0.55, layer.alpha), W * 0.02, H * 0.015, this._wander(Date.now()));
+      this._coverDraw(ctx, im, Math.max(0.55, layer.alpha), W * 0.02, H * 0.015, this._wander(this._wClock));
       ctx.restore();
     }
 
