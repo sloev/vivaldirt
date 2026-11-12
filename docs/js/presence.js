@@ -1,71 +1,122 @@
-// Live listener count, peer-to-peer: Trystero (WebRTC) with Nostr relays
-// for signalling. No server of our own and no keys.
-//
-// Every open page joins one room and publishes a signed per-user status.
-// The count is the number of peers currently advertising "listening".
+// Live listener count via Trystero (WebRTC) + Nostr signalling relays.
+// Count = distinct peers currently advertising that they are playing.
+
+const APP_ID = 'vivaldirt-stream-v1';
+const ROOM = 'listeners';
+const HEARTBEAT_MS = 12_000;
+const STALE_MS = 45_000;
 
 export class Presence {
   constructor({ onChange }) {
     this.onChange = onChange;
-    this.count = 0;
-    this.state = 'off';
-    this._room = null;
-    this._self = null;
+    this.status = 'off'; // off | connecting | live | unavailable
+    this.count = null;
+    this.localPlaying = false;
+    this.peers = new Map(); // peerId -> { on, ts }
+    this.selfId = null;
+  }
+
+  _emit() {
+    this.onChange?.({ status: this.status, count: this.count });
   }
 
   async start() {
-    if (this._room) return;
-    this.state = 'connecting';
-    this.onChange?.(this);
+    if (this.room || this.starting) return;
+    this.starting = true;
+    this.status = 'connecting';
+    this._emit();
     try {
-      // Dynamic import so the main bundle stays small when presence is off
-      const { joinRoom } = await import('https://cdn.jsdelivr.net/npm/trystero@0.20.0/nostr.min.js');
-      const room = joinRoom({ appId: 'vivaldirt-v1', relayUrls: [
-        'wss://relay.damus.io',
-        'wss://nos.lol',
-        'wss://relay.snort.social',
-      ]}, 'listeners');
-      this._room = room;
-      const [send, recv] = room.makeAction('status');
+      const { joinRoom } = await import(
+        'https://cdn.jsdelivr.net/npm/trystero@0.20.0/nostr.min.js'
+      );
+      const room = joinRoom(
+        {
+          appId: APP_ID,
+          relayUrls: [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://relay.snort.social',
+          ],
+        },
+        ROOM
+      );
+      this.room = room;
+      const [send, get] = room.makeAction('listen');
       this._send = send;
-      recv((data, id) => {
-        // track peers
+
+      get((data, peerId) => {
+        if (!data || typeof data !== 'object') return;
+        this.peers.set(peerId, {
+          on: !!data.on,
+          ts: typeof data.ts === 'number' ? data.ts : Date.now(),
+        });
+        this._recount();
       });
-      room.onPeerJoin(() => this._recount());
-      room.onPeerLeave(() => this._recount());
-      this._self = { listening: true };
-      send(this._self);
-      this.state = 'live';
+
+      room.onPeerJoin((id) => {
+        this.peers.set(id, this.peers.get(id) || { on: false, ts: Date.now() });
+        this._publish(true);
+        this._recount();
+      });
+      room.onPeerLeave((id) => {
+        this.peers.delete(id);
+        this._recount();
+      });
+
+      this.status = 'live';
+      this._publish(true);
+      this.timer = setInterval(() => {
+        this._publish();
+        this._recount();
+      }, HEARTBEAT_MS);
       this._recount();
-      this.onChange?.(this);
     } catch (err) {
-      console.warn('Presence unavailable', err);
-      this.state = 'unavailable';
-      this.onChange?.(this);
+      console.warn('presence unavailable:', err);
+      this.status = 'unavailable';
+      this.count = null;
+      this._emit();
+    } finally {
+      this.starting = false;
     }
   }
 
   stop() {
-    if (this._room) {
-      try { this._room.leave(); } catch {}
-      this._room = null;
-    }
-    this.state = 'off';
-    this.count = 0;
-    this.onChange?.(this);
+    clearInterval(this.timer);
+    try { this.room?.leave(); } catch {}
+    this.room = null;
+    this.peers.clear();
+    this.status = 'off';
+    this.count = null;
+    this._emit();
   }
 
-  setListening(on) {
-    if (this._self) {
-      this._self.listening = !!on;
-      this._send?.(this._self);
-      this._recount();
-    }
+  setPlaying(on) {
+    this.localPlaying = !!on;
+    this._publish(true);
+    this._recount();
+  }
+
+  _publish(force = false) {
+    if (!this._send) return;
+    const now = Date.now();
+    if (!force && this._lastSend && now - this._lastSend < 2000) return;
+    this._lastSend = now;
+    try {
+      this._send({ on: this.localPlaying, ts: now });
+    } catch {}
   }
 
   _recount() {
-    // Simplified: count is approximate from peers
-    this.count = Math.max(1, this.count); // at least self when live
-    this.onChange?.(this);
+    const now = Date.now();
+    let n = this.localPlaying ? 1 : 0;
+    for (const [id, p] of this.peers) {
+      if (now - p.ts > STALE_MS) {
+        this.peers.delete(id);
+        continue;
+      }
+      if (p.on) n++;
+    }
+    this.count = this.status === 'unavailable' ? null : n;
+    this._emit();
   }
 }

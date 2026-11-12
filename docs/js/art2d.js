@@ -1,4 +1,4 @@
-// Year plates always composited (2+) + fullscreen ambient score.
+// Year plates: always composite of three images + fullscreen ambient score.
 import { plateForWeek } from './weeks.js';
 
 function easeInOut(t) {
@@ -15,17 +15,34 @@ function loadImage(src) {
   });
 }
 
-/** Continuous year position → two week indices + blend, always two layers. */
-export function yearComposite(date = new Date()) {
+/** Three consecutive week slots around year position, with blend weights. */
+export function yearComposite3(date = new Date()) {
   const start = new Date(Date.UTC(date.getFullYear(), 0, 0));
   const day = Math.floor((date - start) / 86400000);
-  const yearFrac = ((Math.max(1, day) - 1) % 365) / 365; // 0..1
-  // 52 week slots; always between w0 and w1
+  const yearFrac = ((Math.max(1, day) - 1) % 365) / 365;
   const weekF = yearFrac * 52;
-  const w0 = ((Math.floor(weekF) % 52) + 52) % 52;
-  const w1 = (w0 + 1) % 52;
-  const blend = easeInOut(weekF - Math.floor(weekF));
-  return { w0, w1, blend, yearFrac };
+  const base = Math.floor(weekF);
+  const t = easeInOut(weekF - base);
+
+  // Layers: previous, current, next — weights sum to 1
+  const wA = ((base - 1) % 52 + 52) % 52;
+  const wB = ((base) % 52 + 52) % 52;
+  const wC = ((base + 1) % 52 + 52) % 52;
+
+  // Smooth three-way: A fades out, B peaks mid, C fades in
+  // at t=0: mostly B (+ some A), at t=0.5: B, at t=1: mostly C (+ some B)
+  const a = (1 - t) * 0.35;
+  const c = t * 0.35;
+  const b = 1 - a - c;
+
+  return {
+    layers: [
+      { week: wA, alpha: a },
+      { week: wB, alpha: b },
+      { week: wC, alpha: c },
+    ],
+    yearFrac,
+  };
 }
 
 export class Art2D {
@@ -81,7 +98,6 @@ export class Art2D {
       const url = new URL(`../score/${name}-01.png`, import.meta.url).href;
       const im = await loadImage(url);
       const c = document.createElement('canvas');
-      // Higher res for fullscreen
       const w = 720;
       const h = Math.round((im.height / im.width) * w);
       c.width = w; c.height = h;
@@ -102,7 +118,6 @@ export class Art2D {
     this.setScoreSeason(seasonName);
   }
 
-  /** Cover-draw image to fill the viewport (object-fit: cover). */
   _coverDraw(im, alpha) {
     if (!im || alpha <= 0.001) return;
     const ctx = this.ctx;
@@ -156,14 +171,12 @@ export class Art2D {
     ctx.restore();
   }
 
-  /** Fullscreen score stain — same cover geometry as backgrounds. */
   _drawScoreFullscreen() {
     if (!this.scoreData) return;
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
     const sw = this.scoreW, sh = this.scoreH;
 
-    // Musical window: only current section of the page is strong
     const band = 0.3;
     const center = this.frac * (1 - band) + band * 0.5;
     const y0 = center - band / 2;
@@ -195,7 +208,6 @@ export class Art2D {
     }
     g.putImageData(id, 0, 0);
 
-    // object-fit: cover — same as background plates
     const scale = Math.max(W / sw, H / sh);
     const dw = sw * scale, dh = sh * scale;
     const dx = (W - dw) / 2, dy = (H - dh) / 2;
@@ -224,23 +236,24 @@ export class Art2D {
     ctx.fillRect(0, 0, W, H);
 
     const date = new Date(this.musicNow || Date.now());
-    const { w0, w1, blend } = yearComposite(date);
+    const { layers } = yearComposite3(date);
 
-    // Always kick loads for both layers
-    this._getPlate(w0);
-    this._getPlate(w1);
+    for (const layer of layers) this._getPlate(layer.week);
 
-    const a = this.cache.get(w0);
-    const b = this.cache.get(w1);
-
-    // Always a composite of two (when the same file maps to both weeks, still blend alphas)
-    if (a && b) {
-      this._coverDraw(a, 1 - blend);
-      this._coverDraw(b, blend);
-    } else if (a) {
-      this._coverDraw(a, 1);
-    } else if (b) {
-      this._coverDraw(b, 1);
+    // Draw darkest base first, then stacked alphas (composite of three)
+    let any = false;
+    for (const layer of layers) {
+      const im = this.cache.get(layer.week);
+      if (im) {
+        this._coverDraw(im, layer.alpha);
+        any = true;
+      }
+    }
+    if (!any) {
+      // still waiting on loads — try any cached
+      for (const im of this.cache.values()) {
+        if (im) { this._coverDraw(im, 1); break; }
+      }
     }
 
     this._liftShadows();

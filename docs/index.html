@@ -3,27 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Vivaldi Real Time</title>
+  <title>Four Seasons in Real Time</title>
   <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year. The playhead is always at the present moment.">
   <meta name="theme-color" content="#eae9e3">
   <meta http-equiv="Cache-Control" content="no-cache">
-  <link rel="manifest" href="manifest.webmanifest?v=13">
+  <link rel="manifest" href="manifest.webmanifest?v=14">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="css/style.css?v=13">
-  <link rel="modulepreload" href="js/app.js?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="modulepreload" href="js/app.js?v=14">
 </head>
 <body>
   <canvas id="art" aria-hidden="true"></canvas>
 
   <header class="top">
-    <span class="ident">VIVALDI / REAL TIME</span>
     <span class="presence" id="presence"><i class="dot"></i> <span id="presence-text">—</span></span>
   </header>
 
   <main class="stage">
-    <h1 class="title">THE FOUR<br>SEASONS.</h1>
+    <h1 class="title">FOUR SEASONS<br>IN REAL TIME</h1>
     <p class="kicker">ANTONIO VIVALDI · OP. 8</p>
 
     <section class="clock" aria-live="polite">
@@ -79,11 +78,16 @@
       <h2>Sheet music</h2>
       <p>Antonio Vivaldi, <em>Le quattro stagioni</em>, Op. 8 Nos. 1–4, edited by Eleanor Selfridge-Field (Dover, 1995). IMSLP <a href="https://clara.imslp.org/work/126435">#126435</a>. Public domain.</p>
 
+      <h2>This project</h2>
+      <p>Art project by <strong>SUPERNIHIL</strong>, with inspiration from Asmus Busck.</p>
+      <p><a href="https://supernihil.github.io">supernihil.github.io</a></p>
+      <p><a class="support" href="https://buymeacoffee.com/sloev" target="_blank" rel="noopener">Support</a></p>
+
       <h2>Software</h2>
-      <p>Paulstretch by Nasca Octavian Paul. WASM from <a href="https://github.com/olilarkin/paulstretch-for-web">paulstretch-for-web</a> (Oli Larkin, GPL-2.0). <a href="https://github.com/sloev/vivaldirt">Source</a>.</p>
+      <p>Paulstretch by Nasca Octavian Paul. WASM from <a href="https://github.com/olilarkin/paulstretch-for-web">paulstretch-for-web</a> (Oli Larkin, GPL-2.0). Presence via <a href="https://github.com/dmotz/trystero">Trystero</a> + Nostr relays. <a href="https://github.com/sloev/vivaldirt">Source</a>.</p>
     </div>
   </aside>
 
-  <script type="module" src="js/app.js?v=13"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>
