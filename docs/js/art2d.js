@@ -159,7 +159,7 @@ export class Art2D {
     ctx.save();
     ctx.globalAlpha = 0.45;
     for (let i = 0; i < n; i++) {
-      const x = (Math.sin(i * 19.7 + now * 0.00005) * 0.5 + 0.5) * W;
+      const x = (Math.sin(i * 19.7) * 0.5 + 0.5) * W; // static: no movement
       const y = (Math.cos(i * 13.3 + i * 0.17) * 0.5 + 0.5) * H;
       if ((i * 37) % 2 !== 0) continue; // dark specks only (no white dots)
       ctx.fillStyle = '#000';
