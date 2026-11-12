@@ -353,24 +353,52 @@ export class Art2D {
   }
 
   _loop(now) {
-    // nothing here moves faster than about a pixel a second: draw once a
-    // second, or straight away when a plate, the score or the size changed
-    if (this._dirty || !this._last || now - this._last > 1000) {
+    // The still layers (two plates, score, grain, levels) change over days:
+    // composite them every few seconds, or at once when something changed.
+    // Only the wandering plate moves, so each frame is just three cheap draws,
+    // 25 times a second, for a smooth sub-pixel glide.
+    if (this._dirty || !this._staticAt || now - this._staticAt > 5000) {
       this._dirty = false;
+      this._staticAt = now;
+      this._buildStatic();
+    }
+    if (!this._last || now - this._last >= 40) {
       this._last = now;
-      this._draw(now);
+      this._draw();
     }
     requestAnimationFrame(this._loop);
   }
 
-  _draw(now) {
-    const ctx = this.ctx;
+  /** The wandering plate, stretched to the full 0–255 range (once per plate). */
+  _fullRange(index) {
+    const key = `full${index}`;
+    if (this.cache.has(key)) return this.cache.get(key);
+    const src = this.cache.get(index);
+    if (!src) return null;
+    const c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(src, 0, 0);
+    const id = g.getImageData(0, 0, c.width, c.height);
+    const d = id.data;
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < d.length; i += 4) hist[d[i]]++;
+    const n = d.length / 4;
+    let lo = 0, hi = 255, acc = 0;
+    for (; lo < 255; lo++) { acc += hist[lo]; if (acc > n * 0.005) break; }
+    acc = 0;
+    for (; hi > 0; hi--) { acc += hist[hi]; if (acc > n * 0.005) break; }
+    const span = Math.max(1, hi - lo);
+    const lut = new Uint8ClampedArray(256);
+    for (let v = 0; v < 256; v++) lut[v] = ((v - lo) * 255) / span;
+    for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = lut[d[i]];
+    g.putImageData(id, 0, 0);
+    this.cache.set(key, c);
+    return c;
+  }
+
+  _buildStatic() {
     const W = this.canvas.width, H = this.canvas.height;
-
-    // Paper-white base
-    ctx.fillStyle = '#eae9e3';
-    ctx.fillRect(0, 0, W, H);
-
     const off = this._artOff || (this._artOff = document.createElement('canvas'));
     if (off.width !== W || off.height !== H) { off.width = W; off.height = H; }
     const octx = off.getContext('2d');
@@ -379,28 +407,22 @@ export class Art2D {
 
     const date = new Date(this.musicNow || Date.now());
     const { layers } = yearComposite3(date);
-
     for (const layer of layers) this._getPlate(layer.index);
+    this._layers = layers;
 
     const offsets = [
       { x: -W * 0.02, y: -H * 0.015 },
       { x: 0, y: 0 },
-      { x: W * 0.02, y: H * 0.015 },
     ];
-    // the top plate wanders very slowly (see _wander)
-    const wander = this._wander(Date.now());
-
-    layers.forEach((layer, i) => {
+    layers.slice(0, 2).forEach((layer, i) => {
       const im = this.cache.get(layer.index);
       if (!im) return;
-      const o = offsets[i] || { x: 0, y: 0 };
       // multiply: each plate's grain and stains darken the ones beneath
       octx.save();
       octx.globalCompositeOperation = 'multiply';
-      this._coverDraw(octx, im, Math.max(0.55, layer.alpha), o.x, o.y, i === 2 ? wander : null);
+      this._coverDraw(octx, im, Math.max(0.55, layer.alpha), offsets[i].x, offsets[i].y);
       octx.restore();
     });
-
     if (layers.every((l) => !this.cache.get(l.index))) {
       for (const im of this.cache.values()) {
         if (im) { this._coverDraw(octx, im, 1); break; }
@@ -415,8 +437,9 @@ export class Art2D {
     grd.addColorStop(1, 'rgba(18,16,12,0.22)');
     octx.fillStyle = grd;
     octx.fillRect(0, 0, W, H);
-    // levels: screen with grey 30 maps every value v to 30 + v·(225/255),
-    // so the darkest the artwork gets is 30 / 255
+    // levels: screen with grey 30 maps every value v to 30 + v·(225/255), so
+    // the still layers never get darker than 30 / 255 (the wandering plate
+    // is drawn after this and keeps its full range)
     octx.save();
     octx.globalCompositeOperation = 'screen';
     octx.fillStyle = 'rgb(30,30,30)';
@@ -426,18 +449,34 @@ export class Art2D {
     this._measureFade();
     const y1 = this.fadeStartY * H;
     const y2 = Math.min(H, this.fadeEndY * H);
-
-    // One continuous gradient instead of strips: the artwork at full
-    // strength, then paper laid over it, fading from 70 % (art shows at 30 %)
-    // above the clock to 0 % eight lines below it. (Drawing the art in 64
-    // overlapping strips made every 1-px overlap darker: visible stripes.)
-    ctx.drawImage(off, 0, 0);
-    const fade = ctx.createLinearGradient(0, y1, 0, Math.max(y1 + 1, y2));
+    const fade = this.ctx.createLinearGradient(0, y1, 0, Math.max(y1 + 1, y2));
     const steps = 12;
     for (let i = 0; i <= steps; i++) {
       const u = i / steps;
       fade.addColorStop(u, `rgba(234,233,227,${(0.7 * (1 - easeInOut(u))).toFixed(4)})`);
     }
+    this._fade = { y1, y2, fade };
+  }
+
+  _draw() {
+    const ctx = this.ctx;
+    const W = this.canvas.width, H = this.canvas.height;
+    if (!this._artOff || !this._fade) return;
+    ctx.drawImage(this._artOff, 0, 0);
+
+    // the wandering plate: full 0–255 range, multiplied over the still layers
+    const layer = this._layers && this._layers[2];
+    const im = layer && this._fullRange(layer.index);
+    if (im) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      this._coverDraw(ctx, im, Math.max(0.55, layer.alpha), W * 0.02, H * 0.015, this._wander(Date.now()));
+      ctx.restore();
+    }
+
+    // paper over the top: 70 % above the clock (art shows at 30 %), fading
+    // to 0 % eight lines below it, in one continuous gradient
+    const { y1, y2, fade } = this._fade;
     ctx.fillStyle = 'rgba(234,233,227,0.7)';
     ctx.fillRect(0, 0, W, y1);
     ctx.fillStyle = fade;
