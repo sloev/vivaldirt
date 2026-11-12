@@ -1,4 +1,4 @@
-// Week plates crossfade + score as ambient grit (not a clean overlay).
+// Week plates crossfade + score as ambient grit (current band only).
 import { plateForWeek } from './weeks.js';
 
 function easeInOut(t) {
@@ -18,7 +18,7 @@ function loadImage(src) {
 export function weekBlend(date = new Date()) {
   const start = new Date(Date.UTC(date.getFullYear(), 0, 0));
   const day = Math.floor((date - start) / 86400000);
-  const weekF = ((day - 1) / 365) * 52;
+  const weekF = ((Math.max(1, day) - 1) / 365) * 52;
   const w0 = ((Math.floor(weekF) % 52) + 52) % 52;
   const w1 = (w0 + 1) % 52;
   const frac = weekF - Math.floor(weekF);
@@ -104,14 +104,13 @@ export class Art2D {
     ctx.globalAlpha = 1;
   }
 
-  /** Score as stained grit: only current band, soft, multiply into concrete. */
   _drawScoreAmbient() {
     if (!this.scoreData) return;
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
     const sw = this.scoreW, sh = this.scoreH;
 
-    const band = 0.22;
+    const band = 0.2;
     const center = this.frac * (1 - band) + band * 0.5;
     const y0 = center - band / 2;
     const y1 = center + band / 2;
@@ -127,39 +126,39 @@ export class Art2D {
     for (let y = 0; y < sh; y++) {
       const v = y / sh;
       let m = 1;
-      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.18);
-      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.18);
-      m = m * m * (0.35 + 0.65 * m);
+      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.2);
+      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.2);
+      m = m * m * (0.3 + 0.7 * m);
 
       for (let x = 0; x < sw; x++) {
         const i = (y * sw + x) * 4;
         const lum = src[i] / 255;
-        const ink = lum < 0.72 ? (0.72 - lum) / 0.72 : 0;
+        const ink = lum < 0.7 ? (0.7 - lum) / 0.7 : 0;
         const grit = ink * ink;
         const edgeX = Math.min(x / sw, 1 - x / sw);
-        const hx = Math.min(1, edgeX * 4);
-        const a = Math.round(grit * m * hx * 160);
-        d[i] = 12; d[i + 1] = 12; d[i + 2] = 10; d[i + 3] = a;
+        const hx = Math.min(1, edgeX * 3.5);
+        const a = Math.round(grit * m * hx * 145);
+        d[i] = 10; d[i + 1] = 10; d[i + 2] = 9; d[i + 3] = a;
       }
     }
     g.putImageData(id, 0, 0);
 
-    const dw = W * 0.72;
+    const dw = W * 0.75;
     const dh = dw * (sh / sw);
-    const dx = -W * 0.04;
-    const dy = H * 0.08;
+    const dx = -W * 0.05;
+    const dy = H * 0.06;
 
     ctx.save();
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = 0.5;
     ctx.drawImage(off, dx, dy, dw, dh);
-    ctx.globalAlpha = 0.2;
-    ctx.drawImage(off, dx + W * 0.01, dy + H * 0.008, dw, dh);
+    ctx.globalAlpha = 0.18;
+    ctx.drawImage(off, dx + W * 0.012, dy + H * 0.01, dw, dh);
     ctx.restore();
 
-    const grd = ctx.createRadialGradient(W * 0.45, H * 0.5, H * 0.15, W * 0.5, H * 0.5, H * 0.85);
+    const grd = ctx.createRadialGradient(W * 0.45, H * 0.5, H * 0.12, W * 0.5, H * 0.5, H * 0.9);
     grd.addColorStop(0, 'rgba(0,0,0,0)');
-    grd.addColorStop(1, 'rgba(0,0,0,0.25)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.28)');
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, W, H);
   }
@@ -175,7 +174,7 @@ export class Art2D {
   _draw(now) {
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
-    ctx.fillStyle = '#141412';
+    ctx.fillStyle = '#121210';
     ctx.fillRect(0, 0, W, H);
 
     const date = new Date(this.musicNow || Date.now());
@@ -194,9 +193,9 @@ export class Art2D {
 
     this._drawScoreAmbient();
 
-    ctx.globalAlpha = 0.05;
+    ctx.globalAlpha = 0.045;
     ctx.fillStyle = '#000';
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 450; i++) {
       const x = (Math.sin(i * 19.7 + now * 0.00007) * 0.5 + 0.5) * W;
       const y = (Math.cos(i * 13.3 + 2) * 0.5 + 0.5) * H;
       ctx.fillRect(x, y, this.dpr || 1, this.dpr || 1);
