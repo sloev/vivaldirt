@@ -1,16 +1,6 @@
-// Assembles week-0 plate from chunk modules (avoids huge single file).
-import c0 from './week0_0.js';
-import c1 from './week0_1.js';
-import c2 from './week0_2.js';
-import c3 from './week0_3.js';
-import c4 from './week0_4.js';
-import c5 from './week0_5.js';
-import c6 from './week0_6.js';
-const b64 = c0 + c1 + c2 + c3 + c4 + c5 + c6;
-
-export const WEEK_IMAGES = {
-  0: 'data:image/jpeg;base64,' + b64,
-};
+// Week-of-year background plates. Keys 0–51. Add more photos as they arrive.
+// Until more plates are uploaded, week 0 image is reused for all weeks (blend still runs).
+export const WEEK_IMAGES = {};
 
 export function plateForWeek(w) {
   const keys = Object.keys(WEEK_IMAGES).map(Number).sort((a, b) => a - b);
