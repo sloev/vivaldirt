@@ -228,8 +228,8 @@ export class Art2D {
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
 
-    // Neutral dark base only — no paper wash/texture behind the art
-    ctx.fillStyle = '#1c1b19';
+    // Paper-white base
+    ctx.fillStyle = '#eae9e3';
     ctx.fillRect(0, 0, W, H);
 
     const off = this._artOff || (this._artOff = document.createElement('canvas'));
@@ -277,19 +277,20 @@ export class Art2D {
     const y1 = this.fadeStartY * H;
     const y2 = Math.min(H, this.fadeEndY * H);
 
-    const strips = 64;
-    for (let i = 0; i < strips; i++) {
-      const sy = (i / strips) * H;
-      const sh = Math.ceil(H / strips) + 1;
-      const mid = sy + sh / 2;
-      let alpha;
-      if (mid <= y1) alpha = 0.2;
-      else if (mid >= y2) alpha = 1;
-      else alpha = 0.2 + 0.8 * easeInOut((mid - y1) / Math.max(1, y2 - y1));
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(off, 0, sy, W, sh, 0, sy, W, sh);
-      ctx.restore();
+    // One continuous gradient instead of strips: the artwork at full
+    // strength, then paper laid over it, fading from 80 % (art shows at 20 %)
+    // above the clock to 0 % three lines below it. (Drawing the art in 64
+    // overlapping strips made every 1-px overlap darker: visible stripes.)
+    ctx.drawImage(off, 0, 0);
+    const fade = ctx.createLinearGradient(0, y1, 0, Math.max(y1 + 1, y2));
+    const steps = 12;
+    for (let i = 0; i <= steps; i++) {
+      const u = i / steps;
+      fade.addColorStop(u, `rgba(234,233,227,${(0.8 * (1 - easeInOut(u))).toFixed(4)})`);
     }
+    ctx.fillStyle = 'rgba(234,233,227,0.8)';
+    ctx.fillRect(0, 0, W, y1);
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, y1, W, Math.max(1, y2 - y1));
   }
 }

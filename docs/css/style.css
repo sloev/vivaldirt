@@ -3,22 +3,21 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url(../fonts/vivaldirt-bodoni-condensed.woff2) format("woff2"),
-       url(https://cdn.jsdelivr.net/gh/sloev/vivaldirt@ccr-08cdca80-n5y6k6/docs/fonts/vivaldirt-bodoni-condensed.woff2) format("woff2");
+  src: url(../fonts/vivaldirt-bodoni-condensed.woff2) format("woff2");
 }
 @font-face {
   font-family: "IBM Plex Sans";
   font-style: normal;
   font-weight: 400 500;
   font-display: swap;
-  src: url(https://cdn.jsdelivr.net/gh/sloev/vivaldirt@ccr-08cdca80-n5y6k6/docs/fonts/plex-sans.woff2) format("woff2");
+  src: url(../fonts/plex-sans.woff2) format("woff2");
 }
 @font-face {
   font-family: "IBM Plex Mono";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url(https://cdn.jsdelivr.net/gh/sloev/vivaldirt@ccr-08cdca80-n5y6k6/docs/fonts/plex-mono-400.woff2) format("woff2");
+  src: url(../fonts/plex-mono-400.woff2) format("woff2");
 }
 
 :root {
@@ -39,7 +38,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  background: #1c1b19;
+  background: var(--paper);
   color: var(--ink);
   font: 15px/var(--line) var(--sans);
   overflow: hidden;
@@ -51,7 +50,7 @@ body {
   width: 100vw; height: 100vh; height: 100dvh;
   display: block;
   z-index: 0;
-  background: #1c1b19;
+  background: var(--paper);
 }
 
 .top {
