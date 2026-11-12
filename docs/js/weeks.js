@@ -1,6 +1,4 @@
-// Brutalism plates in docs/images, mapped across the year.
-// Always crossfade between the plate for this week and the next.
-// Add more files to PLATES (sorted) as you upload them.
+// Brutalism plates in docs/images — indexed by year progress so neighbours differ.
 
 const PLATES = [
   '1794444638147.jpg',
@@ -17,19 +15,28 @@ const PLATES = [
 
 const BASE = new URL('../images/', import.meta.url);
 
-/** Map week index 0–51 onto the plate list (even spacing). */
-function plateIndexForWeek(w) {
-  if (!PLATES.length) return 0;
-  const t = ((w % 52) + 52) % 52 / 52;
-  return Math.min(PLATES.length - 1, Math.floor(t * PLATES.length));
+export function plateCount() {
+  return PLATES.length;
 }
 
-export function plateForWeek(w) {
+/** Plate index 0..n-1 from continuous year fraction. */
+export function plateIndexAt(yearFrac) {
+  const n = PLATES.length;
+  if (!n) return 0;
+  // Spread so each plate owns an equal slice of the year
+  return Math.min(n - 1, Math.floor((((yearFrac % 1) + 1) % 1) * n));
+}
+
+export function plateUrl(index) {
   if (!PLATES.length) return null;
-  const i = plateIndexForWeek(w);
+  const i = ((index % PLATES.length) + PLATES.length) % PLATES.length;
   return new URL(PLATES[i], BASE).href;
 }
 
-export function plateList() {
-  return PLATES.map((name) => new URL(name, BASE).href);
+/** @deprecated prefer plateUrl + plateIndexAt */
+export function plateForWeek(w) {
+  const n = PLATES.length;
+  if (!n) return null;
+  const i = Math.min(n - 1, Math.floor((((w % 52) + 52) % 52 / 52) * n));
+  return plateUrl(i);
 }

@@ -1,19 +1,18 @@
-// Live listener count via Trystero (WebRTC) + Nostr signalling relays.
-// Count = distinct peers currently advertising that they are playing.
+// Live listener count via Trystero (WebRTC) + Nostr signalling.
+// Count = self (if playing) + peers who recently said they are playing.
 
-const APP_ID = 'vivaldirt-stream-v1';
-const ROOM = 'listeners';
-const HEARTBEAT_MS = 12_000;
-const STALE_MS = 45_000;
+const APP_ID = 'vivaldirt-stream-v2';
+const ROOM = 'listeners-v2';
+const HEARTBEAT_MS = 8_000;
+const STALE_MS = 40_000;
 
 export class Presence {
   constructor({ onChange }) {
     this.onChange = onChange;
-    this.status = 'off'; // off | connecting | live | unavailable
+    this.status = 'off';
     this.count = null;
     this.localPlaying = false;
-    this.peers = new Map(); // peerId -> { on, ts }
-    this.selfId = null;
+    this.peers = new Map();
   }
 
   _emit() {
@@ -25,10 +24,33 @@ export class Presence {
     this.starting = true;
     this.status = 'connecting';
     this._emit();
+
+    const urls = [
+      'https://cdn.jsdelivr.net/npm/trystero@0.20.0/nostr/+esm',
+      'https://unpkg.com/trystero@0.20.0/nostr.js',
+    ];
+
+    let joinRoom;
+    let lastErr;
+    for (const url of urls) {
+      try {
+        const mod = await import(url);
+        joinRoom = mod.joinRoom;
+        if (joinRoom) break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!joinRoom) {
+      console.warn('presence: trystero import failed', lastErr);
+      this.status = 'unavailable';
+      this.count = null;
+      this._emit();
+      this.starting = false;
+      return;
+    }
+
     try {
-      const { joinRoom } = await import(
-        'https://cdn.jsdelivr.net/npm/trystero@0.20.0/nostr.min.js'
-      );
       const room = joinRoom(
         {
           appId: APP_ID,
@@ -36,17 +58,18 @@ export class Presence {
             'wss://relay.damus.io',
             'wss://nos.lol',
             'wss://relay.snort.social',
+            'wss://nostr.wine',
           ],
         },
         ROOM
       );
       this.room = room;
-      const [send, get] = room.makeAction('listen');
+      const [send, onAction] = room.makeAction('listen');
       this._send = send;
 
-      get((data, peerId) => {
+      onAction((data, peerId) => {
         if (!data || typeof data !== 'object') return;
-        this.peers.set(peerId, {
+        this.peers.set(String(peerId), {
           on: !!data.on,
           ts: typeof data.ts === 'number' ? data.ts : Date.now(),
         });
@@ -54,12 +77,12 @@ export class Presence {
       });
 
       room.onPeerJoin((id) => {
-        this.peers.set(id, this.peers.get(id) || { on: false, ts: Date.now() });
+        // Introduce ourselves when someone joins
         this._publish(true);
         this._recount();
       });
       room.onPeerLeave((id) => {
-        this.peers.delete(id);
+        this.peers.delete(String(id));
         this._recount();
       });
 
@@ -99,17 +122,19 @@ export class Presence {
   _publish(force = false) {
     if (!this._send) return;
     const now = Date.now();
-    if (!force && this._lastSend && now - this._lastSend < 2000) return;
+    if (!force && this._lastSend && now - this._lastSend < 1500) return;
     this._lastSend = now;
     try {
       this._send({ on: this.localPlaying, ts: now });
-    } catch {}
+    } catch (e) {
+      console.warn('presence send', e);
+    }
   }
 
   _recount() {
     const now = Date.now();
     let n = this.localPlaying ? 1 : 0;
-    for (const [id, p] of this.peers) {
+    for (const [id, p] of [...this.peers]) {
       if (now - p.ts > STALE_MS) {
         this.peers.delete(id);
         continue;
