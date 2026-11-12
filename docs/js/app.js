@@ -1,4 +1,4 @@
-import { positionAt, seasonAt } from './seasons.js';
+import { positionAt } from './seasons.js';
 import { Engine } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
@@ -37,7 +37,6 @@ async function loadPlaylist(path) {
   return text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(u => new URL(u, base).href);
 }
 
-/** Map wall-clock instant to a sample frame in the continuous recording. */
 function frameAt(t) {
   const m = state.manifest;
   if (!m || !m.movements) return 0;
@@ -47,7 +46,7 @@ function frameAt(t) {
   ) || m.movements.find((x) => x.season === pos.season);
   if (!mv) return 0;
   const len = mv.end - mv.start;
-  return Math.floor(mv.start + pos.movementFrac * len);
+  return Math.floor(mv.start + (pos.movementFrac || 0) * len);
 }
 
 function stretchFactor(t) {
@@ -69,7 +68,6 @@ function updateWash(season) {
   const el = $('score-wash');
   if (!el || season === lastSeason) return;
   lastSeason = season;
-  // Use page 1 of the current season as the integrated score texture
   el.style.backgroundImage = `url(${new URL(`../score/${season}-01.png`, BASE).href})`;
 }
 
@@ -87,11 +85,6 @@ function update() {
     if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
     updateWash(pos.season);
-
-    // Keep playhead in sync while playing
-    if (engine?.playing) {
-      engine.seek(frameAt(t), stretchFactor(t));
-    }
   } catch (err) {
     console.error(err);
   }
@@ -118,6 +111,12 @@ function showScorePage() {
     img.src = new URL(`../score/${season}-${String(page).padStart(2, '0')}.png`, BASE).href;
     img.onload = () => $('page')?.classList.add('show');
   }
+}
+
+function resyncAudio() {
+  if (!engine?.playing) return;
+  const t = vnow();
+  engine.seek(frameAt(t), stretchFactor(t));
 }
 
 async function main() {
@@ -162,18 +161,21 @@ async function main() {
     if (!v) return;
     state.offset = new Date(v).getTime() - Date.now();
     update();
+    resyncAudio();
     closeSheets();
   });
   $('now')?.addEventListener('click', () => {
     state.offset = 0;
     if ($('when')) $('when').value = '';
     update();
+    resyncAudio();
     closeSheets();
   });
   $('hemisphere')?.addEventListener('change', (e) => {
     state.hemisphere = e.target.value;
     try { localStorage.setItem('hemisphere', state.hemisphere); } catch {}
     update();
+    resyncAudio();
   });
   if ($('hemisphere')) $('hemisphere').value = state.hemisphere;
 
