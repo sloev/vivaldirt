@@ -1,4 +1,4 @@
-// Week plates crossfade + score as ambient grit (current band only).
+// Year plates always composited (2+) + fullscreen ambient score.
 import { plateForWeek } from './weeks.js';
 
 function easeInOut(t) {
@@ -15,14 +15,17 @@ function loadImage(src) {
   });
 }
 
-export function weekBlend(date = new Date()) {
+/** Continuous year position → two week indices + blend, always two layers. */
+export function yearComposite(date = new Date()) {
   const start = new Date(Date.UTC(date.getFullYear(), 0, 0));
   const day = Math.floor((date - start) / 86400000);
-  const weekF = ((Math.max(1, day) - 1) / 365) * 52;
+  const yearFrac = ((Math.max(1, day) - 1) % 365) / 365; // 0..1
+  // 52 week slots; always between w0 and w1
+  const weekF = yearFrac * 52;
   const w0 = ((Math.floor(weekF) % 52) + 52) % 52;
   const w1 = (w0 + 1) % 52;
-  const frac = weekF - Math.floor(weekF);
-  return { w0, w1, blend: easeInOut(frac) };
+  const blend = easeInOut(weekF - Math.floor(weekF));
+  return { w0, w1, blend, yearFrac };
 }
 
 export class Art2D {
@@ -32,6 +35,7 @@ export class Art2D {
     this.frac = 0;
     this.seasonName = 'winter';
     this.cache = new Map();
+    this._bySrc = new Map();
     this.scoreData = null;
     this._resize();
     addEventListener('resize', () => this._resize());
@@ -53,7 +57,6 @@ export class Art2D {
     if (this.cache.has(week)) return this.cache.get(week);
     const src = plateForWeek(week);
     if (!src) return null;
-    if (!this._bySrc) this._bySrc = new Map();
     if (this._bySrc.has(src)) {
       const im = this._bySrc.get(src);
       this.cache.set(week, im);
@@ -78,7 +81,8 @@ export class Art2D {
       const url = new URL(`../score/${name}-01.png`, import.meta.url).href;
       const im = await loadImage(url);
       const c = document.createElement('canvas');
-      const w = 480;
+      // Higher res for fullscreen
+      const w = 720;
       const h = Math.round((im.height / im.width) * w);
       c.width = w; c.height = h;
       const g = c.getContext('2d');
@@ -98,6 +102,7 @@ export class Art2D {
     this.setScoreSeason(seasonName);
   }
 
+  /** Cover-draw image to fill the viewport (object-fit: cover). */
   _coverDraw(im, alpha) {
     if (!im || alpha <= 0.001) return;
     const ctx = this.ctx;
@@ -112,27 +117,22 @@ export class Art2D {
     ctx.globalAlpha = 1;
   }
 
-  /** Lift shadows so nothing sits below ~70/255, keep highlights. */
   _liftShadows() {
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
-    // Screen-blend a mid grey so pure black rises toward ~70
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     ctx.globalAlpha = 0.42;
-    ctx.fillStyle = '#464646'; // ~70
+    ctx.fillStyle = '#464646';
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
-    // Slight overall lift
     ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 0.08;
     ctx.fillStyle = '#c8c4bc';
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 
-  /** Heavy film grain. */
   _drawGrain(now) {
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
@@ -143,11 +143,9 @@ export class Art2D {
     for (let i = 0; i < n; i++) {
       const x = (Math.sin(i * 19.7 + now * 0.00005) * 0.5 + 0.5) * W;
       const y = (Math.cos(i * 13.3 + i * 0.17) * 0.5 + 0.5) * H;
-      const g = (i * 37) % 2 === 0 ? 0 : 255;
-      ctx.fillStyle = g ? '#fff' : '#000';
+      ctx.fillStyle = (i * 37) % 2 === 0 ? '#000' : '#fff';
       ctx.fillRect(x, y, dpr, dpr);
     }
-    // Second pass coarser
     ctx.globalAlpha = 0.08;
     for (let i = 0; i < n / 3; i++) {
       const x = (Math.sin(i * 7.1 + 3) * 0.5 + 0.5) * W;
@@ -158,14 +156,15 @@ export class Art2D {
     ctx.restore();
   }
 
-  /** Score as visible stained notation — current band stronger. */
-  _drawScoreAmbient() {
+  /** Fullscreen score stain — same cover geometry as backgrounds. */
+  _drawScoreFullscreen() {
     if (!this.scoreData) return;
     const ctx = this.ctx;
     const W = this.canvas.width, H = this.canvas.height;
     const sw = this.scoreW, sh = this.scoreH;
 
-    const band = 0.28;
+    // Musical window: only current section of the page is strong
+    const band = 0.3;
     const center = this.frac * (1 - band) + band * 0.5;
     const y0 = center - band / 2;
     const y1 = center + band / 2;
@@ -181,46 +180,32 @@ export class Art2D {
     for (let y = 0; y < sh; y++) {
       const v = y / sh;
       let m = 1;
-      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.22);
-      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.22);
+      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.25);
+      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.25);
       m = m * m;
 
       for (let x = 0; x < sw; x++) {
         const i = (y * sw + x) * 4;
         const lum = src[i] / 255;
-        // Keep more of the notation — softer threshold
-        const ink = lum < 0.82 ? (0.82 - lum) / 0.82 : 0;
-        const grit = Math.pow(ink, 1.15);
-        const edgeX = Math.min(x / sw, 1 - x / sw);
-        const hx = Math.min(1, edgeX * 5);
-        // Stronger alpha so it reads on lightened concrete
-        const a = Math.round(grit * m * hx * 210);
+        const ink = lum < 0.85 ? (0.85 - lum) / 0.85 : 0;
+        const grit = Math.pow(ink, 1.1);
+        const a = Math.round(grit * m * 200);
         d[i] = 8; d[i + 1] = 8; d[i + 2] = 6; d[i + 3] = a;
       }
     }
     g.putImageData(id, 0, 0);
 
-    const dw = W * 0.82;
-    const dh = dw * (sh / sw);
-    const dx = -W * 0.02;
-    const dy = H * 0.04;
+    // object-fit: cover — same as background plates
+    const scale = Math.max(W / sw, H / sh);
+    const dw = sw * scale, dh = sh * scale;
+    const dx = (W - dw) / 2, dy = (H - dh) / 2;
 
     ctx.save();
-    // Multiply for ink-into-paper feel
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.72;
+    ctx.globalAlpha = 0.7;
     ctx.drawImage(off, dx, dy, dw, dh);
-    // Soft double impression
-    ctx.globalAlpha = 0.28;
-    ctx.drawImage(off, dx + W * 0.008, dy + H * 0.006, dw, dh);
-    ctx.restore();
-
-    // Slight darken where score sits so notes stay readable after shadow lift
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 0.12;
-    ctx.fillStyle = '#1a1814';
-    ctx.fillRect(dx, dy, dw * 0.95, dh);
+    ctx.globalAlpha = 0.25;
+    ctx.drawImage(off, dx + W * 0.004, dy + H * 0.003, dw, dh);
     ctx.restore();
   }
 
@@ -239,23 +224,32 @@ export class Art2D {
     ctx.fillRect(0, 0, W, H);
 
     const date = new Date(this.musicNow || Date.now());
-    const { w0, w1, blend } = weekBlend(date);
+    const { w0, w1, blend } = yearComposite(date);
+
+    // Always kick loads for both layers
     this._getPlate(w0);
     this._getPlate(w1);
 
     const a = this.cache.get(w0);
     const b = this.cache.get(w1);
-    if (a) this._coverDraw(a, 1 - blend);
-    if (b) this._coverDraw(b, blend);
+
+    // Always a composite of two (when the same file maps to both weeks, still blend alphas)
+    if (a && b) {
+      this._coverDraw(a, 1 - blend);
+      this._coverDraw(b, blend);
+    } else if (a) {
+      this._coverDraw(a, 1);
+    } else if (b) {
+      this._coverDraw(b, 1);
+    }
 
     this._liftShadows();
-    this._drawScoreAmbient();
+    this._drawScoreFullscreen();
     this._drawGrain(now);
 
-    // Soft vignette for depth, not pure black
     const grd = ctx.createRadialGradient(W * 0.5, H * 0.5, H * 0.2, W * 0.5, H * 0.5, H * 0.95);
     grd.addColorStop(0, 'rgba(0,0,0,0)');
-    grd.addColorStop(1, 'rgba(20,18,14,0.22)');
+    grd.addColorStop(1, 'rgba(20,18,14,0.2)');
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, W, H);
   }
