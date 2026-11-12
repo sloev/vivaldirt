@@ -1,4 +1,4 @@
-import { positionAt, SEASONS } from './seasons.js';
+import { positionAt, seasonAt } from './seasons.js';
 import { Engine } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
@@ -11,8 +11,8 @@ const ROMAN = ['I', 'II', 'III'];
 const state = {
   offset: 0,
   hemisphere: localStorage.getItem('hemisphere') || 'north',
-  follow: true,
   scoreMap: null,
+  manifest: null,
   page: 1,
 };
 
@@ -37,7 +37,41 @@ async function loadPlaylist(path) {
   return text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(u => new URL(u, base).href);
 }
 
+/** Map wall-clock instant to a sample frame in the continuous recording. */
+function frameAt(t) {
+  const m = state.manifest;
+  if (!m || !m.movements) return 0;
+  const pos = positionAt(t, state.hemisphere);
+  const mv = m.movements.find(
+    (x) => x.season === pos.season && x.movement === pos.movement
+  ) || m.movements.find((x) => x.season === pos.season);
+  if (!mv) return 0;
+  const len = mv.end - mv.start;
+  return Math.floor(mv.start + pos.movementFrac * len);
+}
+
+function stretchFactor(t) {
+  const pos = positionAt(t, state.hemisphere);
+  const seasonMs = pos.seasonEnd - pos.seasonStart;
+  const m = state.manifest;
+  if (!m || !m.movements) return 12500;
+  const moves = m.movements.filter((x) => x.season === pos.season);
+  const frames = moves.reduce((s, x) => s + (x.end - x.start), 0);
+  const sr = m.sampleRate || 48000;
+  const recMs = (frames / sr) * 1000;
+  return Math.max(100, seasonMs / recMs);
+}
+
 let engine;
+let lastSeason = '';
+
+function updateWash(season) {
+  const el = $('score-wash');
+  if (!el || season === lastSeason) return;
+  lastSeason = season;
+  // Use page 1 of the current season as the integrated score texture
+  el.style.backgroundImage = `url(${new URL(`../score/${season}-01.png`, BASE).href})`;
+}
 
 function update() {
   try {
@@ -46,9 +80,18 @@ function update() {
     if ($('time')) $('time').textContent = clockFmt.format(t);
     if ($('date')) $('date').textContent = dateFmt.format(t).toUpperCase();
     if ($('where')) $('where').textContent = `${NAMES[pos.season]} — ${ROMAN[pos.movement - 1]}.`;
-    if ($('meta')) $('meta').textContent = `Bar ~${Math.max(1, Math.floor(pos.fraction * 160))} · stretch ~×12500`;
+    if ($('meta')) {
+      const st = engine?.playing ? 'LIVE' : '';
+      $('meta').textContent = `Bar ~${Math.max(1, Math.floor(pos.fraction * 160))} · ×${Math.round(stretchFactor(t))} ${st}`;
+    }
     if ($('season-label')) $('season-label').textContent = `${NAMES[pos.season].toUpperCase()} / ${ROMAN[pos.movement - 1]}`;
     document.body.dataset.season = pos.season;
+    updateWash(pos.season);
+
+    // Keep playhead in sync while playing
+    if (engine?.playing) {
+      engine.seek(frameAt(t), stretchFactor(t));
+    }
   } catch (err) {
     console.error(err);
   }
@@ -69,38 +112,37 @@ function showScorePage() {
   const season = pos.season;
   const page = state.page || 1;
   const img = $('page-img');
-  const title = $('score-title');
-  const pageLabel = $('score-page');
-  if (title) title.textContent = `· ${NAMES[season]}`;
-  if (pageLabel) pageLabel.textContent = String(page);
+  if ($('score-title')) $('score-title').textContent = `· ${NAMES[season]}`;
+  if ($('score-page')) $('score-page').textContent = String(page);
   if (img) {
     img.src = new URL(`../score/${season}-${String(page).padStart(2, '0')}.png`, BASE).href;
-    img.onload = () => { const p = $('page'); if (p) p.classList.add('show'); };
+    img.onload = () => $('page')?.classList.add('show');
   }
 }
 
 async function main() {
   let playlist = [];
-  let manifest = {};
   try {
-    [manifest, state.scoreMap, playlist] = await Promise.all([
-      loadJSON('../audio/manifest.json').catch(() => ({})),
+    const [manifest, scoreMap, pl] = await Promise.all([
+      loadJSON('../audio/manifest.json'),
       loadJSON('../score/score.json').catch(() => null),
-      loadPlaylist('../audio/playlist.m3u8').catch(() => []),
+      loadPlaylist('../audio/playlist.m3u8'),
     ]);
+    state.manifest = manifest;
+    state.scoreMap = scoreMap;
+    playlist = pl;
   } catch (err) {
     console.warn('data load', err);
+    if ($('meta')) $('meta').textContent = 'Data load failed';
   }
 
   engine = new Engine({
-    manifest,
+    manifest: state.manifest || { sampleRate: 48000, segmentFrames: 288000, totalFrames: 1e8 },
     playlist,
-    base: BASE,
+    base: new URL('../audio/', BASE),
     onState: (s) => {
-      const el = $('meta');
-      if (!el) return;
-      if (s.error) el.textContent = s.error;
-      else if (s.message) el.textContent = s.message;
+      if (s.error && $('meta')) $('meta').textContent = s.error;
+      else if (s.loading && $('meta')) $('meta').textContent = 'Loading audio…';
     },
   });
 
@@ -143,17 +185,18 @@ async function main() {
   $('play')?.addEventListener('click', async () => {
     const btn = $('play');
     if (engine.playing) {
-      engine.pause();
+      await engine.pause();
       btn.setAttribute('aria-pressed', 'false');
       btn.textContent = 'Listen';
     } else {
       try {
-        await engine.start(0, 12500);
+        const t = vnow();
+        await engine.start(frameAt(t), stretchFactor(t));
         btn.setAttribute('aria-pressed', 'true');
         btn.textContent = 'Pause';
       } catch (err) {
         console.error(err);
-        if ($('meta')) $('meta').textContent = 'Audio failed to start';
+        if ($('meta')) $('meta').textContent = 'Audio failed: ' + (err.message || err);
       }
     }
   });
@@ -177,5 +220,5 @@ async function main() {
 
 main().catch((err) => {
   console.error(err);
-  if ($('meta')) $('meta').textContent = 'Failed to start: ' + err.message;
+  if ($('meta')) $('meta').textContent = 'Failed: ' + err.message;
 });
