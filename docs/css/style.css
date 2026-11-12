@@ -163,7 +163,9 @@ body {
 }
 .about-body h2:first-child { margin-top: 0; }
 .about-body a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
-.about-body a.support {
+.about-body .install { margin: 0 0 8px; }
+.about-body button.support { border: 0; cursor: pointer; font-family: inherit; margin-top: 0; }
+.about-body a.support, .about-body button.support {
   display: inline-block;
   margin-top: 8px;
   padding: 10px 16px;
@@ -173,7 +175,7 @@ body {
   border-radius: 4px;
   font-size: 14px;
 }
-.about-body a.support:hover { opacity: 0.88; }
+.about-body a.support:hover, .about-body button.support:hover { opacity: 0.88; }
 .sheet label { display: flex; flex-direction: column; gap: 6px; margin: 16px 0; font-size: 14px; color: var(--ink); }
 .sheet input, .sheet select {
   background: #f3efe6; border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);

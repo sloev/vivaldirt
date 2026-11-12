@@ -1,4 +1,4 @@
-const VERSION = 'v17';
+const VERSION = 'v18';
 const SHELL = `shell-${VERSION}`;
 const MEDIA = 'media-v2';
 
@@ -17,7 +17,7 @@ self.addEventListener('install', (e) => {
         'js/engine.js',
         'js/presence.js',
         'js/stretch-worker.js',
-        'icons/icon.svg',
+        'icons/favicon-64.png',
       ].map((f) => new Request(f, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
       .catch((err) => console.warn('SW install', err))

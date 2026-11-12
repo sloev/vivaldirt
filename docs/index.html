@@ -8,13 +8,13 @@
   <meta name="theme-color" content="#eae9e3">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta http-equiv="Cache-Control" content="no-cache">
-  <link rel="manifest" href="manifest.webmanifest?v=17">
-  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest?v=18">
+  <link rel="icon" href="icons/favicon-64.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Four Seasons">
-  <link rel="stylesheet" href="css/style.css?v=17">
-  <link rel="modulepreload" href="js/app.js?v=17">
+  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="modulepreload" href="js/app.js?v=18">
 </head>
 <body>
   <canvas id="art" aria-hidden="true"></canvas>
@@ -61,6 +61,10 @@
   <aside class="sheet" id="sheet-about" hidden>
     <header><span>About</span><button type="button" data-close>Close</button></header>
     <div class="body about-body">
+      <div id="install" class="install" hidden>
+        <button id="install-btn" type="button" class="support" hidden>Install app</button>
+        <p id="install-ios" class="small" hidden>To install: tap Share, then “Add to Home Screen”.</p>
+      </div>
       <h2>The idea</h2>
       <p>Antonio Vivaldi’s <em>The Four Seasons</em> (Op. 8, 1725) stretched across a full calendar year. Each concerto lasts exactly as long as its season. The playhead is always at the present moment in the year.</p>
 
@@ -90,7 +94,7 @@
     </div>
   </aside>
 
-  <script type="module" src="js/app.js?v=17"></script>
+  <script type="module" src="js/app.js?v=18"></script>
   <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "4b4ee08bf7524ce290ae1a0edfcca7c4"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

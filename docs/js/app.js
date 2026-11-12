@@ -32,6 +32,38 @@ const state = {
 };
 
 const vnow = () => Date.now() + state.offset;
+
+// ----- install (shown in About only when not installed) -----
+let installPrompt = null;
+const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function updateInstall() {
+  const box = $('install');
+  if (!box) return;
+  const canPrompt = !!installPrompt && !isInstalled();
+  const iosHint = isIOS && !isInstalled();
+  $('install-btn').hidden = !canPrompt;
+  $('install-ios').hidden = !(iosHint && !canPrompt);
+  box.hidden = !(canPrompt || iosHint);
+}
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // keep it for the button instead of the browser's own banner
+  installPrompt = e;
+  updateInstall();
+});
+addEventListener('appinstalled', () => { installPrompt = null; updateInstall(); });
+function initInstall() {
+  updateInstall();
+  $('install-btn')?.addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice.catch(() => null);
+    installPrompt = null;
+    updateInstall();
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initInstall);
+else initInstall();
 const clockFmt = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
 });
