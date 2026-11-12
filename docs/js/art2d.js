@@ -53,11 +53,20 @@ export class Art2D {
     if (this.cache.has(week)) return this.cache.get(week);
     const src = plateForWeek(week);
     if (!src) return null;
-    try {
-      const im = await loadImage(src);
+    // Same URL may map to same image — share decoded Image objects by src
+    if (!this._bySrc) this._bySrc = new Map();
+    if (this._bySrc.has(src)) {
+      const im = this._bySrc.get(src);
       this.cache.set(week, im);
       return im;
-    } catch {
+    }
+    try {
+      const im = await loadImage(src);
+      this._bySrc.set(src, im);
+      this.cache.set(week, im);
+      return im;
+    } catch (e) {
+      console.warn('plate load', src, e);
       this.cache.set(week, null);
       return null;
     }
@@ -104,6 +113,7 @@ export class Art2D {
     ctx.globalAlpha = 1;
   }
 
+  /** Score as stained grit: only current band, soft, multiply into concrete. */
   _drawScoreAmbient() {
     if (!this.scoreData) return;
     const ctx = this.ctx;
