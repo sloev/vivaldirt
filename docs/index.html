@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Vivaldi Real Time</title>
   <meta name="description" content="Vivaldi's Four Seasons stretched across the whole year. The playhead is always at the present moment.">
-  <meta name="theme-color" content="#e8e4d9">
-  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#eae9e3">
+  <meta http-equiv="Cache-Control" content="no-cache">
+  <link rel="manifest" href="manifest.webmanifest?v=4">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="modulepreload" href="js/app.js">
+  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="modulepreload" href="js/app.js?v=4">
 </head>
 <body>
   <div class="paper" aria-hidden="true">
@@ -47,6 +48,7 @@
   </main>
 
   <div class="season-label" id="season-label">WINTER / I</div>
+  <div class="build" id="build">build 4</div>
 
   <aside class="sheet" id="sheet-travel" hidden>
     <header><span>Time travel</span><button type="button" data-close>Close</button></header>
@@ -92,11 +94,11 @@
     <div class="body">
       <p>Vivaldi’s <em>Four Seasons</em> stretched across the year. Each concerto lasts exactly its season. The playhead is always at the present moment.</p>
       <label>Volume <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label>
-      <p class="small">Recording: John Harrison & Wichita State University Chamber Players (CC BY-SA 4.0). Score: public domain via IMSLP. Paulstretch by Nasca Octavian Paul.</p>
-      <p class="small"><a href="https://github.com/sloev/vivaldirt">Source</a></p>
+      <p class="small">Recording: John Harrison & Wichita State University Chamber Players (CC BY-SA 4.0). Score: public domain via IMSLP.</p>
+      <p class="small"><a href="https://github.com/sloev/vivaldirt">Source</a> · build 4</p>
     </div>
   </aside>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>
