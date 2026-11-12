@@ -61,13 +61,15 @@ export class Art2D {
   }
 
   _resize() {
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
     const w = innerWidth, h = innerHeight;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
     this.canvas.style.width = w + 'px';
     this.canvas.style.height = h + 'px';
     this.dpr = dpr;
+    this._texture = null; // grain + grit are rebuilt for the new size
+    this._dirty = true;
     this._measureFade();
   }
 
@@ -92,8 +94,19 @@ export class Art2D {
     if (!src) return null;
     try {
       const im = await loadImage(src);
-      this.cache.set(index, im);
-      return im;
+      // grayscale + contrast once, at a modest size, instead of a CSS filter
+      // on every frame
+      const maxW = 1600;
+      const k = Math.min(1, maxW / im.naturalWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * k);
+      c.height = Math.round(im.naturalHeight * k);
+      const g = c.getContext('2d');
+      g.filter = 'grayscale(1) contrast(1.85)';
+      g.drawImage(im, 0, 0, c.width, c.height);
+      this.cache.set(index, c);
+      this._dirty = true;
+      return c;
     } catch (e) {
       console.warn('plate load', src, e);
       this.cache.set(index, null);
@@ -116,6 +129,8 @@ export class Art2D {
       this.scoreData = g.getImageData(0, 0, w, h).data;
       this.scoreW = w;
       this.scoreH = h;
+      this._scoreKey = null;
+      this._dirty = true;
     } catch (e) {
       console.warn('score', e);
     }
@@ -152,7 +167,7 @@ export class Art2D {
     ctx.restore();
   }
 
-  _drawGrain(ctx, now) {
+  _drawGrain(ctx) {
     const W = this.canvas.width, H = this.canvas.height;
     const dpr = this.dpr || 1;
     const n = Math.floor((W * H) / 300);
@@ -165,6 +180,25 @@ export class Art2D {
       ctx.fillStyle = '#000';
       ctx.fillRect(x, y, dpr, dpr);
     }
+    ctx.restore();
+  }
+
+  /** Grain and grit never move: bake them once per screen size. */
+  _drawTexture(ctx) {
+    const W = this.canvas.width, H = this.canvas.height;
+    if (!this._texture) {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff';
+      g.fillRect(0, 0, W, H);
+      this._drawGrain(g);
+      this._drawGrit(g);
+      this._texture = c;
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.drawImage(this._texture, 0, 0);
     ctx.restore();
   }
 
@@ -208,30 +242,33 @@ export class Art2D {
     const y1 = center + band / 2;
 
     const off = this._scoreOff || (this._scoreOff = document.createElement('canvas'));
-    off.width = sw;
-    off.height = sh;
-    const g = off.getContext('2d');
-    const id = g.createImageData(sw, sh);
-    const d = id.data;
-    const src = this.scoreData;
-
-    for (let y = 0; y < sh; y++) {
-      const v = y / sh;
-      let m = 1;
-      if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.28);
-      else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.28);
-      m = Math.pow(m, 1.2);
-
-      for (let x = 0; x < sw; x++) {
-        const i = (y * sw + x) * 4;
-        const lum = src[i] / 255;
-        const ink = lum < 0.88 ? (0.88 - lum) / 0.88 : 0;
-        const grit = Math.pow(ink, 1.05);
-        const a = Math.round(grit * (0.35 + 0.65 * m) * 230);
-        d[i] = 6; d[i + 1] = 6; d[i + 2] = 5; d[i + 3] = a;
+    // the band moves a few pixels a day: rebuild the layer only when it has
+    const key = `${this._scoreName}|${center.toFixed(3)}`;
+    if (this._scoreKey !== key) {
+      this._scoreKey = key;
+      off.width = sw;
+      off.height = sh;
+      const g = off.getContext('2d');
+      const id = g.createImageData(sw, sh);
+      const d = id.data;
+      const src = this.scoreData;
+      for (let y = 0; y < sh; y++) {
+        const v = y / sh;
+        let m = 1;
+        if (v < y0) m = Math.max(0, 1 - (y0 - v) / 0.28);
+        else if (v > y1) m = Math.max(0, 1 - (v - y1) / 0.28);
+        m = Math.pow(m, 1.2);
+        for (let x = 0; x < sw; x++) {
+          const i = (y * sw + x) * 4;
+          const lum = src[i] / 255;
+          const ink = lum < 0.88 ? (0.88 - lum) / 0.88 : 0;
+          const grit = Math.pow(ink, 1.05);
+          const a = Math.round(grit * (0.35 + 0.65 * m) * 230);
+          d[i] = 6; d[i + 1] = 6; d[i + 2] = 5; d[i + 3] = a;
+        }
       }
+      g.putImageData(id, 0, 0);
     }
-    g.putImageData(id, 0, 0);
 
     const scale = Math.max(W / sw, H / sh);
     const dw = sw * scale, dh = sh * scale;
@@ -247,7 +284,10 @@ export class Art2D {
   }
 
   _loop(now) {
-    if (!this._last || now - this._last > 80) {
+    // nothing here moves faster than about a pixel a second: draw once a
+    // second, or straight away when a plate, the score or the size changed
+    if (this._dirty || !this._last || now - this._last > 1000) {
+      this._dirty = false;
       this._last = now;
       this._draw(now);
     }
@@ -263,8 +303,7 @@ export class Art2D {
     ctx.fillRect(0, 0, W, H);
 
     const off = this._artOff || (this._artOff = document.createElement('canvas'));
-    off.width = W;
-    off.height = H;
+    if (off.width !== W || off.height !== H) { off.width = W; off.height = H; }
     const octx = off.getContext('2d');
     octx.fillStyle = '#eae9e3';
     octx.fillRect(0, 0, W, H);
@@ -290,7 +329,6 @@ export class Art2D {
       // multiply: each plate's grain and stains darken the ones beneath
       octx.save();
       octx.globalCompositeOperation = 'multiply';
-      octx.filter = 'grayscale(1) contrast(1.6)';
       this._coverDraw(octx, im, Math.max(0.55, layer.alpha), o.x, o.y);
       octx.restore();
     });
@@ -302,19 +340,18 @@ export class Art2D {
     }
 
     this._drawScoreFullscreen(octx);
-    this._drawGrain(octx, now);
-    this._drawGrit(octx);
+    this._drawTexture(octx);
 
     const grd = octx.createRadialGradient(W * 0.5, H * 0.5, H * 0.15, W * 0.5, H * 0.5, H * 0.95);
     grd.addColorStop(0, 'rgba(0,0,0,0)');
     grd.addColorStop(1, 'rgba(18,16,12,0.22)');
     octx.fillStyle = grd;
     octx.fillRect(0, 0, W, H);
-    // levels: screen with grey 60 maps every value v to 60 + v·(195/255),
-    // so the darkest the artwork gets is 60 / 255
+    // levels: screen with grey 30 maps every value v to 30 + v·(225/255),
+    // so the darkest the artwork gets is 30 / 255
     octx.save();
     octx.globalCompositeOperation = 'screen';
-    octx.fillStyle = 'rgb(60,60,60)';
+    octx.fillStyle = 'rgb(30,30,30)';
     octx.fillRect(0, 0, W, H);
     octx.restore();
 
